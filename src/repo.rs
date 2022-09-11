@@ -10,6 +10,8 @@ use std::{
 use git2::Repository;
 
 pub fn get_repositories() -> Vec<Repo> {
+    // We should probably add this to some environment variable, instead of 
+    // hardcoding these directories. Give people more control!
     let repositories = vec![
         PathBuf::from("/usr/repo/pur"),
         PathBuf::from("/usr/repo/pur-community"),
@@ -69,8 +71,17 @@ impl TryFrom<PathBuf> for Package {
 }
 
 impl Repo {
+    /// This method fetches all packages from the local system, using the 
+    /// current repository as base directory.
+    /// 
+    /// It will loop through every directory within the repository (not recursively),
+    /// and it will attempt to add every directory to the return value as a Package.
+    /// 
+    /// Every package will be re-fetched everytime this method is called, and not cached,
+    /// so it's recommended to not call this method every single time you need packages;
+    /// call it somewhere globally.
     pub fn get_packages(&self) -> std::io::Result<Vec<Package>> {
-        Ok(fs::read_dir(PathBuf::from("/var/db/installed/"))?
+        Ok(fs::read_dir(&self.dir)?
             .into_iter()
             .filter(|r| r.is_ok())
             .map(|r| r.unwrap().path())
@@ -78,6 +89,7 @@ impl Repo {
             .collect::<Vec<Package>>())
     }
 
+    /// This method will fetch the external repository from the VCS.
     pub fn update_repository(&self) -> Result<(), git2::Error> {
         let repository = Repository::open(&self.dir)?;
         let remote = &mut repository.find_remote("origin")?;
@@ -99,7 +111,10 @@ impl Package {
                 .filter(|r| r.is_ok())
                 .map(|r| r.unwrap().path())
                 .any(|r| r.starts_with(self.name.clone())),
-            Err(_) => false,
+            // Not sure what kind of behaviour we should expect here.
+            // /var/db/installed/ is not present, while it should be.
+            // We should either produce an error here, or we should make the directory.
+            Err(_) => false, 
         }
     }
 
@@ -119,8 +134,11 @@ impl Package {
 
         let install_script = self.dir.join("install");
 
+        // We're invoking the install script as a command here.
         Command::new(install_script.as_os_str())
-            .spawn()
+            // spawning, I'm not sure if this prints the output,
+            // but if it doesn't, we'll have to find some way to print output of a program dynamically.
+            .spawn() 
             .map_err(|_| ParseError::NoInstallScript)?;
 
         Ok(())
