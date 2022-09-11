@@ -20,6 +20,12 @@ fn main() -> Result<(), ExecuteError> {
             )
             .required(false),
         )
+        .arg(
+            arg!(
+                -u --update "Updates the local repositories cached."
+            )
+            .required(false),
+        )
         .get_matches();
 
     let repositories = repo::get_repositories();
@@ -40,6 +46,14 @@ fn main() -> Result<(), ExecuteError> {
 
         for package in to_install {
             handle::install(&package, &packages)?;
+        }
+    }
+
+    if matches.is_present("update") {
+        for repository in repositories {
+            if let Err(_) = repository.update_repository() {
+                panic!("Unable to synchronize repositories.")
+            }
         }
     }
 

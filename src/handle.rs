@@ -15,7 +15,7 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
         Ok(_) => println!("Installed {} v{}", package.name, package.version),
         Err(_) => {
             println!(
-                "Failed to install {} v{}... Skipping",
+                "Failed to install {} v{}... Skipping!",
                 package.name, package.version
             );
             return Err(ExecuteError::CompileFail);
