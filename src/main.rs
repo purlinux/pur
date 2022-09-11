@@ -12,7 +12,7 @@ struct Args {
 }
 
 fn main() {
-    let args = Args::parse();
+    let _args = Args::parse();
 
     println!("Hello, world!");
 }

@@ -1,14 +1,14 @@
-use git2::{Error, Repository};
-use std::env;
+use std::io::Write;
 use std::{
-    convert::{TryFrom, TryInto},
-    fs::{self, ReadDir},
+    convert::TryFrom,
+    fs::{self, File},
     path::PathBuf,
 };
 
 pub enum ParseError {
     NoVersion,
     NoDirectory,
+    AlreadyInstalled,
 }
 
 #[derive(Debug)]
@@ -69,5 +69,22 @@ impl Package {
                 .any(|r| r.starts_with(self.name.clone())),
             Err(_) => false,
         }
+    }
+
+    fn install(&self) -> Result<(), ParseError> {
+        if self.is_installed() {
+            return Err(ParseError::AlreadyInstalled);
+        }
+
+        let installed_dir = PathBuf::from("/var/db/installed/");
+        let bytes = format!("{}", self.version).as_bytes().to_owned();
+
+        let mut file =
+            File::create(installed_dir.join(&self.name)).map_err(|_| ParseError::NoDirectory)?;
+
+        file.write_all(&bytes)
+            .map_err(|_| ParseError::NoDirectory)?;
+
+        Ok(())
     }
 }
