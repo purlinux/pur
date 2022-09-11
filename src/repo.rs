@@ -1,3 +1,4 @@
+use crate::error::ParseError;
 use std::io::Write;
 use std::process::Command;
 use std::{
@@ -6,17 +7,26 @@ use std::{
     path::PathBuf,
 };
 
-pub enum ParseError {
-    NoVersion,
-    NoDirectory,
-    AlreadyInstalled,
-    NoInstallScript,
+use git2::Repository;
+
+pub fn get_repositories() -> Vec<Repo> {
+    let repositories = vec![
+        PathBuf::from("/usr/repo/pur"),
+        PathBuf::from("/usr/repo/pur-community"),
+        PathBuf::from("/usr/repo/unofficial"),
+    ];
+
+    repositories
+        .into_iter()
+        .map(|buf| Repo::from(buf))
+        .collect::<Vec<Repo>>()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Package {
-    version: String,
-    name: String,
+    pub version: String,
+    pub name: String,
+    pub depends: Vec<String>,
     dir: PathBuf,
 }
 
@@ -43,8 +53,18 @@ impl TryFrom<PathBuf> for Package {
             .unwrap_or("".into());
 
         let version = fs::read_to_string(dir.join("version")).map_err(|_| ParseError::NoVersion)?;
+        let depends = fs::read_to_string(dir.join("depends"))
+            .map_err(|_| ParseError::NoDepends)?
+            .split("\n")
+            .map(String::from)
+            .collect::<Vec<String>>();
 
-        Ok(Self { version, dir, name })
+        Ok(Self {
+            version,
+            dir,
+            name,
+            depends,
+        })
     }
 }
 
@@ -57,10 +77,20 @@ impl Repo {
             .flat_map(|x| Package::try_from(x))
             .collect::<Vec<Package>>())
     }
+
+    pub fn update_repository(&self) -> Result<(), git2::Error> {
+        let repository = Repository::open(&self.dir)?;
+        let remote = &mut repository.find_remote("origin")?;
+
+        // we still have to pull (?)
+        remote.fetch(&["main"], None, None)?;
+
+        Ok(())
+    }
 }
 
 impl Package {
-    fn is_installed(&self) -> bool {
+    pub fn is_installed(&self) -> bool {
         let dir = fs::read_dir(PathBuf::from("/var/db/installed/"));
 
         match dir {
@@ -73,7 +103,7 @@ impl Package {
         }
     }
 
-    fn install(&self) -> Result<(), ParseError> {
+    pub fn install(&self) -> Result<(), ParseError> {
         if self.is_installed() {
             return Err(ParseError::AlreadyInstalled);
         }

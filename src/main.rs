@@ -1,18 +1,47 @@
-use clap::Parser;
+pub mod error;
+mod handle;
 mod repo;
 
-#[derive(Parser, Debug)]
-#[clap(author, version, about)]
-struct Args {
-    #[clap(short, long, value_parser)]
-    install: String,
+use crate::error::ExecuteError;
+use crate::repo::Package;
+use clap::{arg, command};
 
-    #[clap(short, long, value_parser)]
-    delete: String,
-}
+fn main() -> Result<(), ExecuteError> {
+    let matches = command!()
+        .arg(
+            arg!(
+                -i --install <packages> "Fetches & installs packages"
+            )
+            .required(false),
+        )
+        .arg(
+            arg!(
+                -r --remove <packages> "Removes package binaries & from local database"
+            )
+            .required(false),
+        )
+        .get_matches();
 
-fn main() {
-    let _args = Args::parse();
+    let repositories = repo::get_repositories();
+    let packages = repositories
+        .iter()
+        .map(|repo| repo.get_packages())
+        .flatten()
+        .flatten()
+        .collect::<Vec<Package>>();
 
-    println!("Hello, world!");
+    if let Some(to_install) = matches.get_many::<String>("install") {
+        let to_install = to_install
+            .into_iter()
+            .map(|pkg| packages.iter().find(|x| &x.name == pkg))
+            .flatten()
+            .cloned()
+            .collect::<Vec<Package>>();
+
+        for package in to_install {
+            handle::install(&package, &packages)?;
+        }
+    }
+
+    Ok(())
 }
