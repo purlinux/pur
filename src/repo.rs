@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::process::Command;
 use std::{
     convert::TryFrom,
     fs::{self, File},
@@ -9,6 +10,7 @@ pub enum ParseError {
     NoVersion,
     NoDirectory,
     AlreadyInstalled,
+    NoInstallScript,
 }
 
 #[derive(Debug)]
@@ -84,6 +86,12 @@ impl Package {
 
         file.write_all(&bytes)
             .map_err(|_| ParseError::NoDirectory)?;
+
+        let install_script = self.dir.join("install");
+
+        Command::new(install_script.as_os_str())
+            .spawn()
+            .map_err(|_| ParseError::NoInstallScript)?;
 
         Ok(())
     }
