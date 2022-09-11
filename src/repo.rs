@@ -94,8 +94,14 @@ impl Repo {
         let repository = Repository::open(&self.dir)?;
         let remote = &mut repository.find_remote("origin")?;
 
-        // we still have to pull (?)
-        remote.fetch(&["main"], None, None)?;
+        let branch = remote.default_branch()?;
+
+        let branch_name = match branch.as_str() {
+            Some(v) => v,
+            None => "main",
+        };
+
+        remote.fetch(&[branch_name], None, None)?;
 
         Ok(())
     }
