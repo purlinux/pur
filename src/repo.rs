@@ -88,23 +88,6 @@ impl Repo {
             .collect::<Vec<Package>>())
     }
 
-    /// This method will fetch the external repository from the VCS.
-    // pub fn update_repository(&self) -> Result<(), git2::Error> {
-    //    let repository = Repository::open(&self.dir)?;
-    //    let remote = &mut repository.find_remote("origin")?;
-    //
-    //    let branch = remote.default_branch()?;
-    //
-    //    let branch_name = match branch.as_str() {
-    //        Some(v) => v,
-    //        None => "main",
-    //    };
-    //
-    //    remote.fetch(&[branch_name], None, None)?;
-    //
-    //    Ok(())
-    //}
-
     pub fn update_repository(&self) -> Result<(), UpdateError> {
         let update_file = self.dir.join("update");
 
