@@ -136,11 +136,22 @@ impl Package {
             return Err(ParseError::AlreadyInstalled);
         }
 
-        let installed_dir = PathBuf::from("/var/db/installed/");
+        // this way of installing should DEFINITELY be redone.
+        // this curently requires you to add the /var/db/installed/
+        // directory to your PATH recursively, with something like export PATH="$PATH:$(find /var/db/installed/ -type d -printf ":%p")".
+        // I'm still figuring out a good way to do this, if someone else wants to do it, be my guest.
+        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
+        let bin_dir = installed_dir.join("bin");
+
+        // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
 
+        if !bin_dir.exists() {
+            fs::create_dir_all(bin_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
+        }
+
         let mut file =
-            File::create(installed_dir.join(&self.name)).map_err(|_| ParseError::NoDirectory)?;
+            File::create(installed_dir.join("version")).map_err(|_| ParseError::NoDirectory)?;
 
         file.write_all(&bytes)
             .map_err(|_| ParseError::NoDirectory)?;
@@ -154,8 +165,13 @@ impl Package {
             fs::create_dir_all(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
         }
 
+        // we want to copy the temporary files into the /var/db/installed/chroot/ directory
+        // these errors can be ignored, because it doesn't matter if they error.
+        let _ = fs::copy(tmp_dir, &bin_dir);
+        let _ = fs::remove_dir(&dir_name);
+
         // actually change the directory.
-        set_current_dir(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
+        set_current_dir(&bin_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
 
         let install_script = self.dir.join("install");
 
@@ -168,7 +184,6 @@ impl Package {
 
         // here we want to clear the previously created temporary directory for building,
         // because considering the installation script is done; this is no longer needed.
-        fs::remove_dir(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
 
         Ok(())
     }
