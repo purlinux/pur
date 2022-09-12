@@ -1,5 +1,7 @@
 use crate::error::ParseError;
+use std::env::set_current_dir;
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use std::{
     convert::TryFrom,
@@ -133,6 +135,18 @@ impl Package {
         file.write_all(&bytes)
             .map_err(|_| ParseError::NoDirectory)?;
 
+        // we want to change the current directory, so we can build stuff if desired.
+        let dir_name = format!("/.tmp/pur/{}", self.name);
+        let tmp_dir = Path::new(&dir_name);
+
+        // if the directory doesn't exist, we have to crate it
+        if !tmp_dir.exists() {
+            fs::create_dir_all(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
+        }
+
+        // actually change the directory.
+        set_current_dir(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
+
         let install_script = self.dir.join("install");
 
         // We're invoking the install script as a command here.
@@ -141,6 +155,10 @@ impl Package {
             .map_err(|_| ParseError::NoInstallScript)?
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
+
+        // here we want to clear the previously created temporary directory for building,
+        // because considering the installation script is done; this is no longer needed.
+        fs::remove_dir(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
 
         Ok(())
     }
