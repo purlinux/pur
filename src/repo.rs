@@ -149,8 +149,10 @@ impl Package {
 
         let files_dir = installed_dir.join("files");
 
-        let libs = get_dir(&files_dir, "lib");
-        let bins = get_dir(&files_dir, "bin");
+        let lib = get_dir(&files_dir, "lib");
+        let lib64 = get_dir(&files_dir, "lib64");
+
+        let bin = get_dir(&files_dir, "bin");
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -176,7 +178,7 @@ impl Package {
         let _ = fs::copy(tmp_dir, &files_dir);
         let _ = fs::remove_dir(&dir_name);
 
-        // actually change the directory.
+        // actually change the directory
         set_current_dir(&files_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
 
         let install_script = self.dir.join("install");
@@ -188,8 +190,9 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        let _ = link_file(&libs, "/usr/lib");
-        let _ = link_file(&bins, "/usr/bin");
+        let _ = link_file(&lib, "/usr/lib");
+        let _ = link_file(&lib64, "/usr/lib64");
+        let _ = link_file(&bin, "/usr/bin");
 
         Ok(())
     }
