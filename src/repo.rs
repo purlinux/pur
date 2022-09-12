@@ -1,5 +1,6 @@
 use crate::error::{ParseError, UpdateError};
 use std::env::set_current_dir;
+use std::fs::ReadDir;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -141,14 +142,14 @@ impl Package {
         // directory to your PATH recursively, with something like export PATH="$PATH:$(find /var/db/installed/ -type d -printf ":%p")".
         // I'm still figuring out a good way to do this, if someone else wants to do it, be my guest.
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
-        let bin_dir = installed_dir.join("bin");
+
+        let files_dir = installed_dir.join("files");
+
+        let libs = self.get_dir(&files_dir, "lib");
+        let bins = self.get_dir(&files_dir, "bin");
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
-
-        if !bin_dir.exists() {
-            fs::create_dir_all(bin_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
-        }
 
         let mut file =
             File::create(installed_dir.join("version")).map_err(|_| ParseError::NoDirectory)?;
@@ -167,11 +168,11 @@ impl Package {
 
         // we want to copy the temporary files into the /var/db/installed/chroot/ directory
         // these errors can be ignored, because it doesn't matter if they error.
-        let _ = fs::copy(tmp_dir, &bin_dir);
+        let _ = fs::copy(tmp_dir, &files_dir);
         let _ = fs::remove_dir(&dir_name);
 
         // actually change the directory.
-        set_current_dir(&bin_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
+        set_current_dir(&files_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
 
         let install_script = self.dir.join("install");
 
@@ -182,9 +183,45 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        // here we want to clear the previously created temporary directory for building,
-        // because considering the installation script is done; this is no longer needed.
+        let _ = link_file(&libs, "/usr/lib");
+        let _ = link_file(&bins, "/usr/bin");
 
         Ok(())
     }
+
+    fn get_dir(&self, parent: &PathBuf, file_name: &str) -> PathBuf {
+        let path = parent.join(file_name);
+
+        if !path.exists() {
+            let _ = fs::create_dir_all(&file_name);
+        }
+
+        path
+    }
+}
+
+fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+    for entry in dir.read_dir() {
+        for entry in entry {
+            let entry = entry?;
+            let path = entry.path();
+
+            match (path.is_file(), path.is_dir()) {
+                (true, false) => {
+                    let file_name = path.file_name();
+
+                    if let Some(file_name) = file_name {
+                        let new_link = format!("{}/{}", target, file_name.to_string_lossy());
+                        let _ = std::os::unix::fs::symlink(path.as_os_str(), new_link);
+                    }
+                }
+                (false, true) => link_file(&path, target)?,
+                (_, _) => {
+                    continue;
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
