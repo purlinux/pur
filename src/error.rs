@@ -13,3 +13,9 @@ pub enum ParseError {
     FailedInstallScript,
     NoDepends,
 }
+
+#[derive(Debug)]
+pub enum UpdateError {
+    NoUpdateScript,
+    UpdateScriptError,
+}

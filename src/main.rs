@@ -59,9 +59,7 @@ fn main() -> Result<(), ExecuteError> {
         }
         Some(("update", _)) => {
             for repository in repositories {
-                if let Err(_) = repository.update_repository() {
-                    panic!("Unable to synchronize repositories.")
-                }
+                repository.update_repository();
             }
         }
         _ => unreachable!("Exhausted list of sub commands"),
