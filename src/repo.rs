@@ -128,7 +128,13 @@ impl Package {
                 .into_iter()
                 .filter(|r| r.is_ok())
                 .map(|r| r.unwrap().path())
-                .any(|r| r.starts_with(self.name.clone())),
+                .any(|r| {
+                    let lossy_str = r.as_os_str().to_string_lossy();
+                    let split = lossy_str.split("/");
+                    let name = split.last().or_else(|| Some("")).unwrap().to_owned();
+
+                    name == self.name.clone()
+                }),
             // Not sure what kind of behaviour we should expect here.
             // /var/db/installed/ is not present, while it should be.
             // We should either produce an error here, or we should make the directory.

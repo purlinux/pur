@@ -18,6 +18,12 @@ fn main() -> Result<(), ExecuteError> {
         )
         .subcommand(Command::new("update").about("Updates the local repositories cached"))
         .subcommand(
+            Command::new("search")
+                .about("Search packages in local repositories.")
+                .arg(arg!(-i --installed "List all packages that are installed").required(false))
+                .arg(arg!(-n --name [NAME] "Filter packages starting with a string")),
+        )
+        .subcommand(
             Command::new("remove")
                 .about("Removes package binaries & from local database")
                 .arg(arg!([NAME])),
@@ -63,6 +69,31 @@ fn main() -> Result<(), ExecuteError> {
                 // not every repository has to be updated, and therefore we can simply ignore
                 // errors within this method.
                 let _ = repository.update_repository();
+            }
+        }
+        Some(("search", matches)) => {
+            let packages = packages
+                .iter()
+                .filter(|package| {
+                    if matches.is_present("installed") && !package.is_installed() {
+                        return false;
+                    }
+
+                    if let Some(value) = matches.get_one::<String>("name") && !package.name.starts_with(value) {
+                        return false;
+                    }
+
+                    return true;
+            }).collect::<Vec<&Package>>();
+
+            for package in packages {
+                let mut str = format!("{} v{}", package.name, package.version);
+
+                if package.is_installed() {
+                    str += " [installed]";
+                }
+
+                println!("{}", str)
             }
         }
         _ => unreachable!("Exhausted list of sub commands"),
