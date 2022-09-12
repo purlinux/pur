@@ -10,5 +10,6 @@ pub enum ParseError {
     NoDirectory,
     AlreadyInstalled,
     NoInstallScript,
+    FailedInstallScript,
     NoDepends,
 }

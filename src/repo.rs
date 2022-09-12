@@ -10,7 +10,7 @@ use std::{
 use git2::Repository;
 
 pub fn get_repositories() -> Vec<Repo> {
-    // We should probably add this to some environment variable, instead of 
+    // We should probably add this to some environment variable, instead of
     // hardcoding these directories. Give people more control!
     let repositories = vec![
         PathBuf::from("/usr/repo/pur"),
@@ -59,6 +59,7 @@ impl TryFrom<PathBuf> for Package {
             .map_err(|_| ParseError::NoDepends)?
             .split("\n")
             .map(String::from)
+            .filter(|x| !x.is_empty())
             .collect::<Vec<String>>();
 
         Ok(Self {
@@ -71,12 +72,12 @@ impl TryFrom<PathBuf> for Package {
 }
 
 impl Repo {
-    /// This method fetches all packages from the local system, using the 
+    /// This method fetches all packages from the local system, using the
     /// current repository as base directory.
-    /// 
+    ///
     /// It will loop through every directory within the repository (not recursively),
     /// and it will attempt to add every directory to the return value as a Package.
-    /// 
+    ///
     /// Every package will be re-fetched everytime this method is called, and not cached,
     /// so it's recommended to not call this method every single time you need packages;
     /// call it somewhere globally.
@@ -114,7 +115,7 @@ impl Package {
             // Not sure what kind of behaviour we should expect here.
             // /var/db/installed/ is not present, while it should be.
             // We should either produce an error here, or we should make the directory.
-            Err(_) => false, 
+            Err(_) => false,
         }
     }
 
@@ -136,10 +137,10 @@ impl Package {
 
         // We're invoking the install script as a command here.
         Command::new(install_script.as_os_str())
-            // spawning, I'm not sure if this prints the output,
-            // but if it doesn't, we'll have to find some way to print output of a program dynamically.
-            .spawn() 
-            .map_err(|_| ParseError::NoInstallScript)?;
+            .spawn()
+            .map_err(|_| ParseError::NoInstallScript)?
+            .wait_with_output()
+            .map_err(|_| ParseError::FailedInstallScript)?;
 
         Ok(())
     }
