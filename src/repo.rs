@@ -1,6 +1,5 @@
 use crate::error::{ParseError, UpdateError};
 use std::env::set_current_dir;
-use std::fs::ReadDir;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -145,8 +144,8 @@ impl Package {
 
         let files_dir = installed_dir.join("files");
 
-        let libs = self.get_dir(&files_dir, "lib");
-        let bins = self.get_dir(&files_dir, "bin");
+        let libs = get_dir(&files_dir, "lib");
+        let bins = get_dir(&files_dir, "bin");
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -188,16 +187,16 @@ impl Package {
 
         Ok(())
     }
+}
 
-    fn get_dir(&self, parent: &PathBuf, file_name: &str) -> PathBuf {
-        let path = parent.join(file_name);
+fn get_dir(parent: &PathBuf, file_name: &str) -> PathBuf {
+    let path = parent.join(file_name);
 
-        if !path.exists() {
-            let _ = fs::create_dir_all(&file_name);
-        }
-
-        path
+    if !path.exists() {
+        let _ = fs::create_dir_all(&file_name);
     }
+
+    path
 }
 
 fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
