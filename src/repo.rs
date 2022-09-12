@@ -15,14 +15,10 @@ pub fn get_repositories() -> Vec<Repo> {
         Err(_) => "/usr/repo/pur:/usr/repo/pur-community:/usr/repo/unofficial".to_owned(), // default value, in case the environment variable is not present.
     };
 
-    let repositories = repo_var
+    repo_var
         .split(":")
         .map(PathBuf::from)
-        .collect::<Vec<PathBuf>>();
-
-    repositories
-        .into_iter()
-        .map(|buf| Repo::from(buf))
+        .map(Repo::from)
         .collect::<Vec<Repo>>()
 }
 
