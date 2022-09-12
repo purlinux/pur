@@ -4,27 +4,23 @@ mod repo;
 
 use crate::error::ExecuteError;
 use crate::repo::Package;
-use clap::{arg, command};
+use clap::{arg, command, Command};
 
 fn main() -> Result<(), ExecuteError> {
-    let mut command = command!()
-        .arg(
-            arg!(
-                -i --install <packages> "Fetches & installs packages"
-            )
-            .required(false),
+    let command = command!()
+        .arg_required_else_help(true)
+        .propagate_version(true)
+        .subcommand_required(true)
+        .subcommand(
+            Command::new("install")
+                .about("Fetches & installs packages")
+                .arg(arg!([NAME])),
         )
-        .arg(
-            arg!(
-                -r --remove <packages> "Removes package binaries & from local database"
-            )
-            .required(false),
-        )
-        .arg(
-            arg!(
-                -u --update "Updates the local repositories cached."
-            )
-            .required(false),
+        .subcommand(Command::new("update").about("Updates the local repositories cached"))
+        .subcommand(
+            Command::new("remove")
+                .about("Removes package binaries & from local database")
+                .arg(arg!([NAME])),
         );
 
     let matches = command.clone().get_matches();
@@ -44,34 +40,32 @@ fn main() -> Result<(), ExecuteError> {
         .flatten()
         .collect::<Vec<Package>>();
 
-    if let Some(to_install) = matches.get_many::<String>("install") {
-        let to_install = to_install
-            .into_iter()
-            .flat_map(|pkg| packages.iter().find(|x| &x.name == pkg)) // find a package which matches the name given by the user.
-            .cloned()
-            .collect::<Vec<Package>>();
+    match matches.subcommand() {
+        Some(("install", matches)) => {
+            if let Some(to_install) = matches.get_many::<String>("NAME") {
+                let to_install = to_install
+                    .into_iter()
+                    .flat_map(|pkg| packages.iter().find(|x| &x.name == pkg)) // find a package which matches the name given by the user.
+                    .cloned()
+                    .collect::<Vec<Package>>();
 
-        // Install all packages.
-        // We should manually handle the error thrown by handle::install() here,
-        // but currently we're just panicing, so please do this in the future.
-        for package in to_install {
-            handle::install(&package, &packages)?;
-        }
-    }
-
-    if matches.is_present("update") {
-        for repository in repositories {
-            if let Err(_) = repository.update_repository() {
-                panic!("Unable to synchronize repositories.")
+                // Install all packages.
+                // We should manually handle the error thrown by handle::install() here,
+                // but currently we're just panicing, so please do this in the future.
+                for package in to_install {
+                    handle::install(&package, &packages)?;
+                }
             }
         }
-    }
-
-    if !matches.args_present() {
-        command
-            .print_help()
-            .map_err(|_| ExecuteError::CompileFail)?;
-    }
+        Some(("update", _)) => {
+            for repository in repositories {
+                if let Err(_) = repository.update_repository() {
+                    panic!("Unable to synchronize repositories.")
+                }
+            }
+        }
+        _ => unreachable!("Exhausted list of sub commands"),
+    };
 
     Ok(())
 }
