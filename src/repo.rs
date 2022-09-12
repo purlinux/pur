@@ -136,7 +136,7 @@ impl Package {
             .map_err(|_| ParseError::NoDirectory)?;
 
         // we want to change the current directory, so we can build stuff if desired.
-        let dir_name = format!("/.tmp/pur/{}", self.name);
+        let dir_name = format!("/tmp/pur/{}", self.name);
         let tmp_dir = Path::new(&dir_name);
 
         // if the directory doesn't exist, we have to crate it
