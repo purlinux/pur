@@ -182,8 +182,8 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        let _ = link_file(&libs, "/usr/lib");
-        let _ = link_file(&bins, "/usr/bin");
+        let _ = link_file(&libs, "/usr/lib").unwrap();
+        let _ = link_file(&bins, "/usr/bin").unwrap();
 
         Ok(())
     }
@@ -193,7 +193,7 @@ fn get_dir(parent: &PathBuf, file_name: &str) -> PathBuf {
     let path = parent.join(file_name);
 
     if !path.exists() {
-        let _ = fs::create_dir_all(&file_name);
+        let _ = fs::create_dir_all(&path);
     }
 
     path
