@@ -59,7 +59,10 @@ fn main() -> Result<(), ExecuteError> {
         }
         Some(("update", _)) => {
             for repository in repositories {
-                repository.update_repository();
+                // here we're ignoring the error result of the update_repository() method.
+                // not every repository has to be updated, and therefore we can simply ignore
+                // errors within this method.
+                let _ = repository.update_repository();
             }
         }
         _ => unreachable!("Exhausted list of sub commands"),
