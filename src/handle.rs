@@ -21,11 +21,16 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
 
     match package.install() {
         Ok(_) => println!("Installed {} v{}", package.name, package.version),
-        Err(_) => {
+        Err(e) => {
             println!(
                 "Failed to install {} v{}... Skipping!",
                 package.name, package.version
             );
+
+            // Here we want to print the error for easier debugging.
+            // Should we only print this if a certain environment variable is set? (e.g DEBUG).
+            println!("{:?}", e);
+
             return Err(ExecuteError::CompileFail);
         }
     };

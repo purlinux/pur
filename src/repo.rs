@@ -52,7 +52,12 @@ impl TryFrom<PathBuf> for Package {
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or("".into());
 
-        let version = fs::read_to_string(dir.join("version")).map_err(|_| ParseError::NoVersion)?;
+        let version = fs::read_to_string(dir.join("version"))
+            .map_err(|_| ParseError::NoVersion)?
+            .chars()
+            .filter(|x| !x.is_whitespace())
+            .collect::<String>();
+
         let depends = fs::read_to_string(dir.join("depends"))
             .map_err(|_| ParseError::NoDepends)?
             .lines()
@@ -150,11 +155,12 @@ impl Package {
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
 
-        let mut file =
-            File::create(installed_dir.join("version")).map_err(|_| ParseError::NoDirectory)?;
+        let mut file = File::create(installed_dir.join("version")).map_err(|_| {
+            ParseError::NoDirectory(format!("{}", installed_dir.as_os_str().to_string_lossy()))
+        })?;
 
         file.write_all(&bytes)
-            .map_err(|_| ParseError::NoDirectory)?;
+            .map_err(|_| ParseError::MetadataWriting(String::from("Version Metadata")))?;
 
         // we want to change the current directory, so we can build stuff if desired.
         let dir_name = format!("/tmp/pur/{}", self.name);
@@ -182,8 +188,8 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        let _ = link_file(&libs, "/usr/lib").unwrap();
-        let _ = link_file(&bins, "/usr/bin").unwrap();
+        let _ = link_file(&libs, "/usr/lib");
+        let _ = link_file(&bins, "/usr/bin");
 
         Ok(())
     }
