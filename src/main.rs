@@ -7,7 +7,7 @@ use crate::repo::Package;
 use clap::{arg, command};
 
 fn main() -> Result<(), ExecuteError> {
-    let matches = command!()
+    let mut command = command!()
         .arg(
             arg!(
                 -i --install <packages> "Fetches & installs packages"
@@ -25,8 +25,9 @@ fn main() -> Result<(), ExecuteError> {
                 -u --update "Updates the local repositories cached."
             )
             .required(false),
-        )
-        .get_matches();
+        );
+
+    let matches = command.clone().get_matches();
 
     // If we're here, it means the program has to do something with the repositories.
     // Therefore, we're free to fetch all repositories now.
@@ -64,6 +65,12 @@ fn main() -> Result<(), ExecuteError> {
                 panic!("Unable to synchronize repositories.")
             }
         }
+    }
+
+    if !matches.args_present() {
+        command
+            .print_help()
+            .map_err(|_| ExecuteError::CompileFail)?;
     }
 
     Ok(())
