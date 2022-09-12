@@ -1,6 +1,7 @@
 use crate::error::{ParseError, UpdateError};
 use std::env::set_current_dir;
 use std::io::Write;
+use std::num::ParseIntError;
 use std::path::Path;
 use std::process::Command;
 use std::{
@@ -30,6 +31,11 @@ pub struct Package {
     dir: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct InstallData {
+    version: String,
+}
+
 #[derive(Debug)]
 pub struct Repo {
     dir: PathBuf,
@@ -38,6 +44,20 @@ pub struct Repo {
 impl From<PathBuf> for Repo {
     fn from(path: PathBuf) -> Self {
         Self { dir: path }
+    }
+}
+
+impl TryFrom<PathBuf> for InstallData {
+    type Error = ParseError;
+
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+        let version = fs::read_to_string(path.join("version"))
+            .map_err(|_| ParseError::NoVersion)?
+            .chars()
+            .filter(|x| !x.is_whitespace())
+            .collect::<String>();
+
+        Ok(Self { version })
     }
 }
 
@@ -115,35 +135,71 @@ impl Repo {
             set_current_dir(value).map_err(|_| UpdateError::UpdateScriptError)?;
         }
 
+        // here we want to update the packages themselves
+        for (package, data) in self
+            .get_packages()
+            .map_err(|_| UpdateError::UpdateScriptError)?
+            .iter()
+            .map(|package| {
+                let data = package.is_installed();
+
+                match data {
+                    Some(value) => Some((package, value)),
+                    None => None,
+                }
+            })
+            .flatten()
+        {
+            let x = package.version.clone();
+            let y = data.version.clone();
+
+            let cmp = comparse_version(&x, &y);
+
+            if let Ok(val) = cmp && val < 0 {
+                package.update();
+            }
+        }
+
         Ok(())
     }
 }
 
 impl Package {
-    pub fn is_installed(&self) -> bool {
+    pub fn is_installed(&self) -> Option<InstallData> {
         let dir = fs::read_dir(PathBuf::from("/var/db/installed/"));
 
         match dir {
-            Ok(value) => value
-                .into_iter()
-                .filter(|r| r.is_ok())
-                .map(|r| r.unwrap().path())
-                .any(|r| {
-                    let lossy_str = r.as_os_str().to_string_lossy();
-                    let split = lossy_str.split("/");
-                    let name = split.last().or_else(|| Some("")).unwrap().to_owned();
+            Ok(value) => {
+                let first = value
+                    .into_iter()
+                    .filter(|r| r.is_ok())
+                    .map(|r| r.unwrap().path())
+                    .find(|r| {
+                        let lossy_str = r.as_os_str().to_string_lossy();
+                        let split = lossy_str.split("/");
+                        let name = split.last().or_else(|| Some("")).unwrap().to_owned();
 
-                    name == self.name.clone()
-                }),
+                        name == self.name.clone()
+                    });
+
+                match first {
+                    Some(value) => InstallData::try_from(value).ok(),
+                    None => None,
+                }
+            }
             // Not sure what kind of behaviour we should expect here.
             // /var/db/installed/ is not present, while it should be.
             // We should either produce an error here, or we should make the directory.
-            Err(_) => false,
+            Err(_) => None,
         }
     }
 
+    pub fn update(&self) {
+        println!("todo: update package");
+    }
+
     pub fn install(&self) -> Result<(), ParseError> {
-        if self.is_installed() {
+        if self.is_installed().is_some() {
             return Err(ParseError::AlreadyInstalled);
         }
 
@@ -202,6 +258,22 @@ impl Package {
 
         Ok(())
     }
+}
+
+fn comparse_version(x: &str, y: &str) -> Result<i32, ParseIntError> {
+    let x = x
+        .chars()
+        .filter(|c| c.is_digit(10))
+        .collect::<String>()
+        .parse::<i32>()?;
+
+    let y = y
+        .chars()
+        .filter(|c| c.is_digit(10))
+        .collect::<String>()
+        .parse::<i32>()?;
+
+    Ok(x - y)
 }
 
 fn get_dir(parent: &PathBuf, file_name: &str) -> PathBuf {

@@ -75,7 +75,7 @@ fn main() -> Result<(), ExecuteError> {
             let packages = packages
                 .iter()
                 .filter(|package| {
-                    if matches.is_present("installed") && !package.is_installed() {
+                    if matches.is_present("installed") && package.is_installed().is_none() {
                         return false;
                     }
 
@@ -89,7 +89,7 @@ fn main() -> Result<(), ExecuteError> {
             for package in packages {
                 let mut str = format!("{} v{}", package.name, package.version);
 
-                if package.is_installed() {
+                if package.is_installed().is_some() {
                     str += " [installed]";
                 }
 
