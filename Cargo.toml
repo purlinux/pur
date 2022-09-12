@@ -8,3 +8,8 @@ edition = "2021"
 [dependencies]
 # git2 = "0.15.0"
 clap = { version = "3.2.20", features = ["unstable-doc"] }
+
+[profile.release]
+strip = "debuginfo"
+opt-level = 2
+overflow-checks = false
