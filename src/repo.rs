@@ -147,17 +147,16 @@ impl Package {
             return Err(ParseError::AlreadyInstalled);
         }
 
-        // this way of installing should DEFINITELY be redone.
-        // this curently requires you to add the /var/db/installed/
-        // directory to your PATH recursively, with something like export PATH="$PATH:$(find /var/db/installed/ -type d -printf ":%p")".
-        // I'm still figuring out a good way to do this, if someone else wants to do it, be my guest.
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
 
         let files_dir = installed_dir.join("files");
 
+        // We need these directories to move the data into.
+        // These directories are required for 2 related reasons:
+        // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
+        // - We have to be able to detect what package the binaries are related to
         let lib = get_dir(&files_dir, "lib");
         let lib64 = get_dir(&files_dir, "lib64");
-
         let bin = get_dir(&files_dir, "bin");
 
         // the version data
@@ -196,6 +195,7 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
+        // make symlinks for the data within the data directories
         let _ = link_file(&lib, "/usr/lib");
         let _ = link_file(&lib64, "/usr/lib64");
         let _ = link_file(&bin, "/usr/bin");
