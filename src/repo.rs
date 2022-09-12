@@ -90,11 +90,14 @@ impl Repo {
 
     pub fn update_repository(&self) -> Result<(), UpdateError> {
         let update_file = self.dir.join("update");
+        let current_dir = std::env::current_dir();
 
         // if the update scrip doesn't exist, return early with an error.
         if !update_file.exists() {
             return Err(UpdateError::NoUpdateScript);
         }
+
+        set_current_dir(&self.dir).map_err(|_| UpdateError::NoUpdateScript)?;
 
         // call the update script as a command
         Command::new(update_file.as_os_str())
@@ -102,6 +105,10 @@ impl Repo {
             .map_err(|_| UpdateError::UpdateScriptError)?
             .wait_with_output()
             .map_err(|_| UpdateError::UpdateScriptError)?;
+
+        if let Ok(value) = current_dir {
+            set_current_dir(value).map_err(|_| UpdateError::UpdateScriptError)?;
+        }
 
         Ok(())
     }
