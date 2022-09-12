@@ -10,7 +10,7 @@ edition = "2021"
 clap = { version = "3.2.20", features = ["unstable-doc"] }
 
 [profile.release]
-strip = "debuginfo"
+strip = true
 panic = "abort"
 opt-level = "z"
 overflow-checks = false
