@@ -10,13 +10,15 @@ use std::{
 };
 
 pub fn get_repositories() -> Vec<Repo> {
-    // We should probably add this to some environment variable, instead of
-    // hardcoding these directories. Give people more control!
-    let repositories = vec![
-        PathBuf::from("/usr/repo/pur"),
-        PathBuf::from("/usr/repo/pur-community"),
-        PathBuf::from("/usr/repo/unofficial"),
-    ];
+    let repo_var = match std::env::var("PUR_REPOS") {
+        Ok(val) => val,
+        Err(_) => "/usr/repo/pur:/usr/repo/pur-community:/usr/repo/unofficial".to_owned(), // default value, in case the environment variable is not present.
+    };
+
+    let repositories = repo_var
+        .split(":")
+        .map(PathBuf::from)
+        .collect::<Vec<PathBuf>>();
 
     repositories
         .into_iter()
@@ -57,7 +59,7 @@ impl TryFrom<PathBuf> for Package {
         let version = fs::read_to_string(dir.join("version")).map_err(|_| ParseError::NoVersion)?;
         let depends = fs::read_to_string(dir.join("depends"))
             .map_err(|_| ParseError::NoDepends)?
-            .split("\n")
+            .lines()
             .map(String::from)
             .filter(|x| !x.is_empty())
             .collect::<Vec<String>>();
