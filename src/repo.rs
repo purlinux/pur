@@ -11,7 +11,7 @@ use std::{
 };
 
 pub fn get_repositories() -> Vec<Repo> {
-    let repo_var = match std::env::var("PUR_REPOS") {
+    let repo_var = match std::env::var("PUR_PATH") {
         Ok(val) => val,
         Err(_) => "/usr/repo/pur:/usr/repo/pur-community:/usr/repo/unofficial".to_owned(), // default value, in case the environment variable is not present.
     };
@@ -291,9 +291,9 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "lib");
-        let lib64 = get_dir(&files_dir, "lib64");
-        let bin = get_dir(&files_dir, "bin");
+        let lib = get_dir(&files_dir, "usr/lib");
+        let lib64 = get_dir(&files_dir, "usr/lib64");
+        let bin = get_dir(&files_dir, "usr/bin");
 
         // first, we want to unlink the symlinks.
         // errors can be ignored here.
