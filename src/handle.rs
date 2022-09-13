@@ -37,3 +37,23 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
 
     Ok(())
 }
+
+pub fn remove(package: &Package) -> Result<(), ExecuteError> {
+    match package.uninstall() {
+        Ok(_) => println!("Removed {} v{}", package.name, package.version),
+        Err(e) => {
+            println!(
+                "Failed to remove {} v{}... Skipping!",
+                package.name, package.version
+            );
+
+            // Here we want to print the error for easier debugging.
+            // Should we only print this if a certain environment variable is set? (e.g DEBUG).
+            println!("{:?}", e);
+
+            return Err(ExecuteError::UninstallFail);
+        }
+    }
+
+    Ok(())
+}

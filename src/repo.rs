@@ -258,6 +258,34 @@ impl Package {
 
         Ok(())
     }
+
+    pub fn uninstall(&self) -> Result<(), ParseError> {
+        if self.is_installed().is_none() {
+            return Err(ParseError::NotInstalled);
+        }
+
+        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
+        let files_dir = installed_dir.join("files");
+
+        // We need these directories to move the data into.
+        // These directories are required for 2 related reasons:
+        // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
+        // - We have to be able to detect what package the binaries are related to
+        let lib = get_dir(&files_dir, "lib");
+        let lib64 = get_dir(&files_dir, "lib64");
+        let bin = get_dir(&files_dir, "bin");
+
+        // first, we want to unlink the symlinks.
+        // errors can be ignored here.
+        let _ = unlink_file(&lib, "/usr/lib");
+        let _ = unlink_file(&lib64, "/usr/lib64");
+        let _ = unlink_file(&bin, "/usr/bin");
+
+        // now, we want to delete the actual binary data and the full installation directory.
+        fs::remove_dir_all(installed_dir).expect("Unable to delete file, are you root?");
+
+        Ok(())
+    }
 }
 
 fn comparse_version(x: &str, y: &str) -> Result<i32, ParseIntError> {
@@ -287,24 +315,41 @@ fn get_dir(parent: &PathBuf, file_name: &str) -> PathBuf {
 }
 
 fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+    do_recursive(dir, &|path| {
+        let file_name = path.file_name();
+
+        if let Some(file_name) = file_name {
+            let new_link = format!("{}/{}", target, file_name.to_string_lossy());
+            let _ = std::os::unix::fs::symlink(path.as_os_str(), new_link);
+        }
+    })
+}
+
+fn unlink_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+    do_recursive(dir, &|path| {
+        let file_name = path.file_name();
+
+        if let Some(file_name) = file_name {
+            let new_link = format!("{}/{}", target, file_name.to_string_lossy());
+            let path = PathBuf::from(&new_link);
+
+            if path.exists() {
+                fs::remove_file(&new_link).expect("Unable to remove symlink, are you root?");
+            }
+        }
+    })
+}
+
+fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Result<()> {
     for entry in dir.read_dir() {
         for entry in entry {
             let entry = entry?;
             let path = entry.path();
 
             match (path.is_file(), path.is_dir()) {
-                (true, false) => {
-                    let file_name = path.file_name();
-
-                    if let Some(file_name) = file_name {
-                        let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-                        let _ = std::os::unix::fs::symlink(path.as_os_str(), new_link);
-                    }
-                }
-                (false, true) => link_file(&path, target)?,
-                (_, _) => {
-                    continue;
-                }
+                (true, false) => callback(dir),
+                (false, true) => do_recursive(dir, callback)?,
+                (_, _) => continue,
             }
         }
     }

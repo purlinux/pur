@@ -71,6 +71,22 @@ fn main() -> Result<(), ExecuteError> {
                 let _ = repository.update_repository();
             }
         }
+        Some(("remove", matches)) => {
+            if let Some(to_remove) = matches.get_many::<String>("NAME") {
+                let to_remove = to_remove
+                    .into_iter()
+                    .flat_map(|pkg| packages.iter().find(|x| &x.name == pkg)) // find a package which matches the name given by the user.
+                    .cloned()
+                    .collect::<Vec<Package>>();
+
+                // Install all packages.
+                // We should manually handle the error thrown by handle::install() here,
+                // but currently we're just panicing, so please do this in the future.
+                for package in to_remove {
+                    handle::remove(&package)?;
+                }
+            }
+        }
         Some(("search", matches)) => {
             let packages = packages
                 .iter()

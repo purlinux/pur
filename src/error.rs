@@ -2,6 +2,7 @@
 pub enum ExecuteError {
     NoDependFound,
     CompileFail,
+    UninstallFail,
 }
 
 #[derive(Debug)]
@@ -10,6 +11,7 @@ pub enum ParseError {
     NoDirectory(String),
     MetadataWriting(String),
     AlreadyInstalled,
+    NotInstalled,
     NoInstallScript,
     FailedInstallScript,
     NoDepends,
