@@ -39,8 +39,11 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
 }
 
 pub fn update(repository: &Repo) -> Result<(), UpdateError> {
-    repository.update_repository(&mut |package| {
-        println!("Updating {} to v{}...", package.name, package.version);
+    repository.update_repository(&mut |package, data| {
+        println!(
+            "Found new version {} for {}! Updating...Updating from {}...",
+            package.version, package.name, data.version
+        );
 
         // we want to update the package contents now
         match package.update() {

@@ -33,7 +33,7 @@ pub struct Package {
 
 #[derive(Debug, Clone)]
 pub struct InstallData {
-    version: String,
+    pub version: String,
 }
 
 #[derive(Debug)]
@@ -115,7 +115,7 @@ impl Repo {
 
     pub fn update_repository(
         &self,
-        update_callback: &mut dyn FnMut(Package) -> Result<(), UpdateError>,
+        update_callback: &mut dyn FnMut(Package, InstallData) -> Result<(), UpdateError>,
     ) -> Result<(), UpdateError> {
         let update_file = self.dir.join("update");
         let current_dir = std::env::current_dir();
@@ -159,7 +159,7 @@ impl Repo {
             let cmp = comparse_version(&x, &y);
 
             if let Ok(val) = cmp && val > 0 {
-                update_callback(package.clone())?;
+                update_callback(package.clone(), data.clone())?;
             }
         }
 
