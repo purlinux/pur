@@ -211,9 +211,9 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "usr/lib");
-        let lib64 = get_dir(&files_dir, "usr/lib64");
-        let bin = get_dir(&files_dir, "usr/bin");
+        let lib = get_dir(&files_dir, "usr/lib/");
+        let lib64 = get_dir(&files_dir, "usr/lib64/");
+        let bin = get_dir(&files_dir, "usr/bin/");
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -337,7 +337,7 @@ fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
 
         if let Some(file_name) = file_name {
             let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-            let _ = std::os::unix::fs::symlink(path.as_os_str(), new_link);
+            let _ = std::os::unix::fs::symlink(path.as_os_str(), &new_link);
         }
     })
 }
@@ -364,9 +364,11 @@ fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Re
             let path = entry.path();
 
             match (path.is_file(), path.is_dir()) {
-                (true, false) => callback(dir),
+                (true, false) => callback(&path),
                 (false, true) => do_recursive(dir, callback)?,
-                (_, _) => continue,
+                (_, _) => {
+                    println!("what? {:?}", path);
+                }
             }
         }
     }
