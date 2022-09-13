@@ -21,4 +21,5 @@ pub enum ParseError {
 pub enum UpdateError {
     NoUpdateScript,
     UpdateScriptError,
+    PackageUpdateError(String),
 }

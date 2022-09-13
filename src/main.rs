@@ -65,10 +65,21 @@ fn main() -> Result<(), ExecuteError> {
         }
         Some(("update", _)) => {
             for repository in repositories {
-                // here we're ignoring the error result of the update_repository() method.
-                // not every repository has to be updated, and therefore we can simply ignore
-                // errors within this method.
-                let _ = repository.update_repository();
+                match handle::update(&repository) {
+                    Ok(_) => {
+                        println!(
+                            "Updated {} repository",
+                            repository.dir.as_os_str().to_string_lossy()
+                        )
+                    }
+                    Err(e) => {
+                        println!(
+                            "Failed to update {:?} repository, {:?}",
+                            repository.dir.as_os_str().to_string_lossy(),
+                            e
+                        )
+                    }
+                };
             }
         }
         Some(("remove", matches)) => {

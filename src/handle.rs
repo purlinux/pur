@@ -1,5 +1,5 @@
-use crate::error::ExecuteError;
-use crate::repo::Package;
+use crate::error::{ExecuteError, UpdateError};
+use crate::repo::{Package, Repo};
 
 pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
     for ele in &package.depends {
@@ -34,6 +34,20 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
             return Err(ExecuteError::CompileFail);
         }
     };
+
+    Ok(())
+}
+
+pub fn update(repository: &Repo) -> Result<(), UpdateError> {
+    let packages = repository.update_repository()?;
+
+    for package in packages {
+        package
+            .update()
+            .map_err(|_| UpdateError::PackageUpdateError(package.name.clone()))?;
+
+        println!("Updated {} to v{}", package.name, package.version);
+    }
 
     Ok(())
 }

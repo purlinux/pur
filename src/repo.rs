@@ -38,7 +38,7 @@ pub struct InstallData {
 
 #[derive(Debug)]
 pub struct Repo {
-    dir: PathBuf,
+    pub dir: PathBuf,
 }
 
 impl From<PathBuf> for Repo {
@@ -113,7 +113,7 @@ impl Repo {
             .collect::<Vec<Package>>())
     }
 
-    pub fn update_repository(&self) -> Result<(), UpdateError> {
+    pub fn update_repository(&self) -> Result<Vec<Package>, UpdateError> {
         let update_file = self.dir.join("update");
         let current_dir = std::env::current_dir();
 
@@ -135,6 +135,8 @@ impl Repo {
             set_current_dir(value).map_err(|_| UpdateError::UpdateScriptError)?;
         }
 
+        let mut packages = Vec::new();
+
         // here we want to update the packages themselves
         for (package, data) in self
             .get_packages()
@@ -155,12 +157,12 @@ impl Repo {
 
             let cmp = comparse_version(&x, &y);
 
-            if let Ok(val) = cmp && val < 0 {
-                package.update();
+            if let Ok(val) = cmp && val > 0 {
+                packages.push(package.clone());
             }
         }
 
-        Ok(())
+        Ok(packages)
     }
 }
 
@@ -194,17 +196,14 @@ impl Package {
         }
     }
 
-    pub fn update(&self) {
-        println!("todo: update package");
+    pub fn update(&self) -> Result<(), ParseError> {
+        self.remove_binaries()?;
+        self.install()?;
+        Ok(())
     }
 
     pub fn install(&self) -> Result<(), ParseError> {
-        if self.is_installed().is_some() {
-            return Err(ParseError::AlreadyInstalled);
-        }
-
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
-
         let files_dir = installed_dir.join("files");
 
         // We need these directories to move the data into.
@@ -217,8 +216,13 @@ impl Package {
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
+        let version_file = installed_dir.join("version");
 
-        let mut file = File::create(installed_dir.join("version")).map_err(|_| {
+        if version_file.exists() {
+            let _ = fs::remove_file(&version_file); // can ignore this error
+        }
+
+        let mut file = File::create(&version_file).map_err(|_| {
             ParseError::NoDirectory(format!("{}", installed_dir.as_os_str().to_string_lossy()))
         })?;
 
@@ -265,6 +269,20 @@ impl Package {
         }
 
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
+
+        // first, we want to remove the binaries.
+        // these binaries are stored within the `installed_dir` directory,
+        // so we have to delete them before we delete the directory.
+        self.remove_binaries()?;
+
+        // now, we want to delete the actual binary data and the full installation directory.
+        fs::remove_dir_all(installed_dir).expect("Unable to delete file, are you root?");
+
+        Ok(())
+    }
+
+    pub fn remove_binaries(&self) -> Result<(), ParseError> {
+        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
         // We need these directories to move the data into.
@@ -280,9 +298,6 @@ impl Package {
         let _ = unlink_file(&lib, "/usr/lib");
         let _ = unlink_file(&lib64, "/usr/lib64");
         let _ = unlink_file(&bin, "/usr/bin");
-
-        // now, we want to delete the actual binary data and the full installation directory.
-        fs::remove_dir_all(installed_dir).expect("Unable to delete file, are you root?");
 
         Ok(())
     }
