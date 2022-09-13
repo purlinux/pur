@@ -211,9 +211,9 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "lib");
-        let lib64 = get_dir(&files_dir, "lib64");
-        let bin = get_dir(&files_dir, "bin");
+        let lib = get_dir(&files_dir, "usr/lib");
+        let lib64 = get_dir(&files_dir, "usr/lib64");
+        let bin = get_dir(&files_dir, "usr/bin");
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -251,6 +251,7 @@ impl Package {
 
         // We're invoking the install script as a command here.
         Command::new(install_script.as_os_str())
+            .arg(&files_dir)
             .spawn()
             .map_err(|_| ParseError::NoInstallScript)?
             .wait_with_output()
