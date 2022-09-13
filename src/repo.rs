@@ -113,7 +113,10 @@ impl Repo {
             .collect::<Vec<Package>>())
     }
 
-    pub fn update_repository(&self) -> Result<Vec<Package>, UpdateError> {
+    pub fn update_repository(
+        &self,
+        update_callback: &mut dyn FnMut(Package) -> Result<(), UpdateError>,
+    ) -> Result<(), UpdateError> {
         let update_file = self.dir.join("update");
         let current_dir = std::env::current_dir();
 
@@ -134,8 +137,6 @@ impl Repo {
         if let Ok(value) = current_dir {
             set_current_dir(value).map_err(|_| UpdateError::UpdateScriptError)?;
         }
-
-        let mut packages = Vec::new();
 
         // here we want to update the packages themselves
         for (package, data) in self
@@ -158,11 +159,11 @@ impl Repo {
             let cmp = comparse_version(&x, &y);
 
             if let Ok(val) = cmp && val > 0 {
-                packages.push(package.clone());
+                update_callback(package.clone())?;
             }
         }
 
-        Ok(packages)
+        Ok(())
     }
 }
 

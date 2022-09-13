@@ -39,17 +39,26 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
 }
 
 pub fn update(repository: &Repo) -> Result<(), UpdateError> {
-    let packages = repository.update_repository()?;
+    repository.update_repository(&mut |package| {
+        println!("Updating {} to v{}...", package.name, package.version);
 
-    for package in packages {
-        package
-            .update()
-            .map_err(|_| UpdateError::PackageUpdateError(package.name.clone()))?;
+        // we want to update the package contents now
+        match package.update() {
+            Ok(_) => {
+                println!("Updated {} to v{}", package.name, package.version);
+            }
+            Err(e) => {
+                println!(
+                    "Failed to update {} to v{}, because {:?}",
+                    package.name, package.version, e
+                );
 
-        println!("Updated {} to v{}", package.name, package.version);
-    }
+                println!("... Skipping!");
+            }
+        };
 
-    Ok(())
+        Ok(())
+    })
 }
 
 pub fn remove(package: &Package) -> Result<(), ExecuteError> {
