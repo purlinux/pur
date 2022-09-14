@@ -14,7 +14,8 @@ fn main() -> Result<(), ExecuteError> {
         .subcommand(
             Command::new("install")
                 .about("Fetches & installs packages")
-                .arg(arg!([NAME])),
+                .arg(arg!([NAME]))
+                .arg(arg!(-d --dry "Execute a dry run of the install, don't make any symlinks.")),
         )
         .subcommand(Command::new("update").about("Updates the local repositories cached"))
         .subcommand(
@@ -59,7 +60,7 @@ fn main() -> Result<(), ExecuteError> {
                 // We should manually handle the error thrown by handle::install() here,
                 // but currently we're just panicing, so please do this in the future.
                 for package in to_install {
-                    handle::install(&package, &packages)?;
+                    handle::install(&package, &packages, &matches)?;
                 }
             }
         }

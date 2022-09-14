@@ -1,3 +1,5 @@
+use clap::ArgMatches;
+
 use crate::error::{ParseError, UpdateError};
 use std::env::set_current_dir;
 use std::io::Write;
@@ -36,9 +38,22 @@ pub struct InstallData {
     pub version: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct InstallFlags {
+    pub link: bool,
+}
+
 #[derive(Debug)]
 pub struct Repo {
     pub dir: PathBuf,
+}
+
+impl From<&ArgMatches> for InstallFlags {
+    fn from(matches: &ArgMatches) -> Self {
+        Self {
+            link: matches.is_present("dry"),
+        }
+    }
 }
 
 impl From<PathBuf> for Repo {
@@ -199,11 +214,11 @@ impl Package {
 
     pub fn update(&self) -> Result<(), ParseError> {
         self.remove_binaries()?;
-        self.install()?;
+        self.install(InstallFlags { link: true })?;
         Ok(())
     }
 
-    pub fn install(&self) -> Result<(), ParseError> {
+    pub fn install(&self, flags: InstallFlags) -> Result<(), ParseError> {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
@@ -257,10 +272,12 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        // make symlinks for the data within the data directories
-        let _ = link_file(&lib, "/usr/lib");
-        let _ = link_file(&lib64, "/usr/lib64");
-        let _ = link_file(&bin, "/usr/bin");
+        if flags.link {
+            // make symlinks for the data within the data directories
+            let _ = link_file(&lib, "/usr/lib");
+            let _ = link_file(&lib64, "/usr/lib64");
+            let _ = link_file(&bin, "/usr/bin");
+        }
 
         Ok(())
     }
@@ -291,9 +308,9 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "usr/lib");
-        let lib64 = get_dir(&files_dir, "usr/lib64");
-        let bin = get_dir(&files_dir, "usr/bin");
+        let lib = get_dir(&files_dir, "usr/lib/");
+        let lib64 = get_dir(&files_dir, "usr/lib64/");
+        let bin = get_dir(&files_dir, "usr/bin/");
 
         // first, we want to unlink the symlinks.
         // errors can be ignored here.

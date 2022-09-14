@@ -1,7 +1,13 @@
-use crate::error::{ExecuteError, UpdateError};
-use crate::repo::{Package, Repo};
+use clap::ArgMatches;
 
-pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
+use crate::error::{ExecuteError, UpdateError};
+use crate::repo::{InstallFlags, Package, Repo};
+
+pub fn install(
+    package: &Package,
+    packages: &Vec<Package>,
+    matches: &ArgMatches,
+) -> Result<(), ExecuteError> {
     for ele in &package.depends {
         let depend = packages.iter().find(|package| &package.name == ele);
 
@@ -9,7 +15,7 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
             // We just want to call this method recursively until all dependencies are installed.
             // We probably want to manually handle the error in here, considering they're children, and not the entire
             // build process should have to be stopped just because this build fails.
-            Some(package) => install(&package, &packages)?,
+            Some(package) => install(&package, &packages, matches)?,
             // I'm not sure what kind of behaviour we should be expecting here.
             // Should we expect the whole package to be skipped? Or should we just ignore this dependency?
             // I suggest we completely skip the package for now, because there is simply something wrong with the package if
@@ -19,7 +25,9 @@ pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), Execute
         }
     }
 
-    match package.install() {
+    let flags: InstallFlags = matches.into();
+
+    match package.install(flags) {
         Ok(_) => println!("Installed {} v{}", package.name, package.version),
         Err(e) => {
             println!(
