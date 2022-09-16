@@ -8,6 +8,7 @@ pub enum ExecuteError {
 #[derive(Debug)]
 pub enum ParseError {
     NoVersion,
+    Other(String),
     NoDirectory(String),
     MetadataWriting(String),
     AlreadyInstalled,
@@ -15,6 +16,11 @@ pub enum ParseError {
     NoInstallScript,
     FailedInstallScript,
     NoDepends,
+}
+
+#[derive(Debug)]
+pub enum BuildError {
+    LinkError,
 }
 
 #[derive(Debug)]

@@ -1,6 +1,4 @@
-use clap::ArgMatches;
-
-use crate::error::{ParseError, UpdateError};
+use crate::error::{BuildError, ParseError, UpdateError};
 use std::env::set_current_dir;
 use std::io::Write;
 use std::num::ParseIntError;
@@ -46,14 +44,6 @@ pub struct InstallFlags {
 #[derive(Debug)]
 pub struct Repo {
     pub dir: PathBuf,
-}
-
-impl From<&ArgMatches> for InstallFlags {
-    fn from(matches: &ArgMatches) -> Self {
-        Self {
-            link: matches.is_present("dry"),
-        }
-    }
 }
 
 impl From<PathBuf> for Repo {
@@ -214,11 +204,14 @@ impl Package {
 
     pub fn update(&self) -> Result<(), ParseError> {
         self.remove_binaries()?;
-        self.install(InstallFlags { link: true })?;
+        self.build()?;
+        self.install()
+            .map_err(|err| ParseError::Other(format!("{:?}", err)))?;
+
         Ok(())
     }
 
-    pub fn install(&self, flags: InstallFlags) -> Result<(), ParseError> {
+    pub fn build(&self) -> Result<(), ParseError> {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
@@ -226,9 +219,7 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "usr/lib/");
-        let lib64 = get_dir(&files_dir, "usr/lib64/");
-        let bin = get_dir(&files_dir, "usr/bin/");
+        execute_for_dirs::<ParseError>(&files_dir, &|_, _| Ok(()))?;
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -272,14 +263,16 @@ impl Package {
             .wait_with_output()
             .map_err(|_| ParseError::FailedInstallScript)?;
 
-        if flags.link {
-            // make symlinks for the data within the data directories
-            let _ = link_file(&lib, "/usr/lib");
-            let _ = link_file(&lib64, "/usr/lib64");
-            let _ = link_file(&bin, "/usr/bin");
-        }
-
         Ok(())
+    }
+
+    pub fn install(&self) -> Result<(), BuildError> {
+        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
+        let files_dir = installed_dir.join("files");
+
+        execute_for_dirs::<BuildError>(&files_dir, &|dir, id| {
+            link_file(dir, id).map_err(|_| BuildError::LinkError)
+        })
     }
 
     pub fn uninstall(&self) -> Result<(), ParseError> {
@@ -304,21 +297,9 @@ impl Package {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
-        // We need these directories to move the data into.
-        // These directories are required for 2 related reasons:
-        // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
-        // - We have to be able to detect what package the binaries are related to
-        let lib = get_dir(&files_dir, "usr/lib/");
-        let lib64 = get_dir(&files_dir, "usr/lib64/");
-        let bin = get_dir(&files_dir, "usr/bin/");
-
-        // first, we want to unlink the symlinks.
-        // errors can be ignored here.
-        let _ = unlink_file(&lib, "/usr/lib");
-        let _ = unlink_file(&lib64, "/usr/lib64");
-        let _ = unlink_file(&bin, "/usr/bin");
-
-        Ok(())
+        execute_for_dirs::<ParseError>(&files_dir, &|path, id| {
+            unlink_file(&path, id).map_err(|_| ParseError::NoDirectory(String::from("")))
+        })
     }
 }
 
@@ -388,6 +369,25 @@ fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Re
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+fn execute_for_dirs<T>(
+    base_dir: &PathBuf,
+    callback: &dyn Fn(&PathBuf, &String) -> Result<(), T>,
+) -> Result<(), T> {
+    let directories = vec![
+        "/usr/bin",
+        "/usr/lib",
+        "/usr/lib64",
+        "/usr/sbin",
+        "/usr/linuxrc",
+    ];
+
+    for directory in directories {
+        callback(&get_dir(&base_dir, directory), &directory.to_owned())?;
     }
 
     Ok(())

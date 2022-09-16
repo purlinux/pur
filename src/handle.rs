@@ -27,8 +27,14 @@ pub fn install(
 
     let flags: InstallFlags = matches.into();
 
-    match package.install(flags) {
-        Ok(_) => println!("Installed {} v{}", package.name, package.version),
+    match package.build() {
+        Ok(_) => {
+            println!("Built {} v{}", package.name, package.version);
+
+            if flags.link {
+                package.install().map_err(|_| ExecuteError::CompileFail)?;
+            }
+        }
         Err(e) => {
             println!(
                 "Failed to install {} v{}... Skipping!",
@@ -90,4 +96,12 @@ pub fn remove(package: &Package) -> Result<(), ExecuteError> {
     }
 
     Ok(())
+}
+
+impl From<&ArgMatches> for InstallFlags {
+    fn from(matches: &ArgMatches) -> Self {
+        Self {
+            link: matches.is_present("dry"),
+        }
+    }
 }
