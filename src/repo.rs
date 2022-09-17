@@ -317,14 +317,11 @@ fn comparse_version(x: &str, y: &str) -> Result<i32, ParseIntError> {
 }
 
 fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
-    println!("{:?} {}", dir, target);
     do_recursive(dir, &|path| {
         let file_name = path.file_name();
-        println!("{:?}, {:?}", dir, file_name);
 
         if let Some(file_name) = file_name {
             let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-            println!("{:?}", new_link);
             std::os::unix::fs::symlink(path.as_os_str(), &new_link).expect("meow");
         }
     })
