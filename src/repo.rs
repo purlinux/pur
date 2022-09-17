@@ -12,7 +12,15 @@ use std::{
 pub fn get_repositories() -> Vec<Repo> {
     let repo_var = match std::env::var("PUR_PATH") {
         Ok(val) => val,
-        Err(_) => "/usr/repo/pur:/usr/repo/pur-community:/usr/repo/unofficial".to_owned(), // default value, in case the environment variable is not present.
+        Err(_) => {
+            let repos = vec![
+                "/usr/repo/pur",
+                "/usr/repo/pur-community",
+                "/usr/repo/unofficial",
+            ];
+
+            repos.join(":")
+        }
     };
 
     repo_var
