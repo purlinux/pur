@@ -15,7 +15,7 @@ fn main() -> Result<(), ExecuteError> {
             Command::new("install")
                 .about("Fetches & installs packages")
                 .arg(arg!([NAME]))
-                .arg(arg!(-d --dry "Execute a dry run of the install, don't make any symlinks.")),
+                .arg(arg!(-i --install "Automatically install the packages, create symlinks etc")),
         )
         .subcommand(Command::new("update").about("Updates the local repositories cached"))
         .subcommand(
@@ -107,12 +107,13 @@ fn main() -> Result<(), ExecuteError> {
                         return false;
                     }
 
-                    if let Some(value) = matches.get_one::<String>("name") && !package.name.starts_with(value) {
-                        return false;
+                    if let Some(value) = matches.get_one::<String>("name") {
+                        return package.name.starts_with(value);
                     }
 
                     return true;
-            }).collect::<Vec<&Package>>();
+                })
+                .collect::<Vec<&Package>>();
 
             for package in packages {
                 let mut str = format!("{} v{}", package.name, package.version);

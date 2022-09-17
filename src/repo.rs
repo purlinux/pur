@@ -2,7 +2,6 @@ use crate::error::{BuildError, ParseError, UpdateError};
 use std::env::set_current_dir;
 use std::io::Write;
 use std::num::ParseIntError;
-use std::path::Path;
 use std::process::Command;
 use std::{
     convert::TryFrom,
@@ -163,7 +162,11 @@ impl Repo {
 
             let cmp = comparse_version(&x, &y);
 
-            if let Ok(val) = cmp && val > 0 {
+            if let Ok(val) = cmp {
+                if val < 0 {
+                    continue;
+                }
+
                 update_callback(package.clone(), data.clone())?;
             }
         }
@@ -229,35 +232,29 @@ impl Package {
             let _ = fs::remove_file(&version_file); // can ignore this error
         }
 
-        let mut file = File::create(&version_file).map_err(|_| {
-            ParseError::NoDirectory(format!("{}", installed_dir.as_os_str().to_string_lossy()))
+        // this will automatically create all the parent directories (including &installed_dir)
+        fs::create_dir_all(&files_dir).expect("meow todo error");
+
+        let mut file = File::create(&version_file).map_err(|e| {
+            ParseError::NoDirectory(format!(
+                "{}: {}",
+                e,
+                &version_file.as_os_str().to_string_lossy()
+            ))
         })?;
 
         file.write_all(&bytes)
             .map_err(|_| ParseError::MetadataWriting(String::from("Version Metadata")))?;
 
-        // we want to change the current directory, so we can build stuff if desired.
-        let dir_name = format!("/tmp/pur/{}", self.name);
-        let tmp_dir = Path::new(&dir_name);
-
-        // if the directory doesn't exist, we have to crate it
-        if !tmp_dir.exists() {
-            fs::create_dir_all(&dir_name).map_err(|_| ParseError::FailedInstallScript)?;
-        }
-
-        // we want to copy the temporary files into the /var/db/installed/chroot/ directory
-        // these errors can be ignored, because it doesn't matter if they error.
-        let _ = fs::copy(tmp_dir, &files_dir);
-        let _ = fs::remove_dir(&dir_name);
-
         // actually change the directory
-        set_current_dir(&files_dir.as_os_str()).map_err(|_| ParseError::FailedInstallScript)?;
+        set_current_dir(&files_dir.as_os_str())
+            .map_err(|_| ParseError::NoDirectory(String::from("Unable to change to directory")))?;
 
         let install_script = self.dir.join("install");
 
         // We're invoking the install script as a command here.
         Command::new(install_script.as_os_str())
-            .arg(&files_dir)
+            .args([&files_dir, &self.dir])
             .spawn()
             .map_err(|_| ParseError::NoInstallScript)?
             .wait_with_output()
@@ -319,23 +316,16 @@ fn comparse_version(x: &str, y: &str) -> Result<i32, ParseIntError> {
     Ok(x - y)
 }
 
-fn get_dir(parent: &PathBuf, file_name: &str) -> PathBuf {
-    let path = parent.join(file_name);
-
-    if !path.exists() {
-        let _ = fs::create_dir_all(&path);
-    }
-
-    path
-}
-
 fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+    println!("{:?} {}", dir, target);
     do_recursive(dir, &|path| {
         let file_name = path.file_name();
+        println!("{:?}, {:?}", dir, file_name);
 
         if let Some(file_name) = file_name {
             let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-            let _ = std::os::unix::fs::symlink(path.as_os_str(), &new_link);
+            println!("{:?}", new_link);
+            std::os::unix::fs::symlink(path.as_os_str(), &new_link).expect("meow");
         }
     })
 }
@@ -378,16 +368,16 @@ fn execute_for_dirs<T>(
     base_dir: &PathBuf,
     callback: &dyn Fn(&PathBuf, &String) -> Result<(), T>,
 ) -> Result<(), T> {
-    let directories = vec![
-        "/usr/bin",
-        "/usr/lib",
-        "/usr/lib64",
-        "/usr/sbin",
-        "/usr/linuxrc",
-    ];
+    let directories = vec!["usr/bin", "usr/lib", "usr/lib64", "usr/sbin", "usr/linuxrc"];
 
     for directory in directories {
-        callback(&get_dir(&base_dir, directory), &directory.to_owned())?;
+        let dir = base_dir.join(directory);
+
+        if !dir.exists() {
+            fs::create_dir_all(&dir).expect("Unable to create directory.");
+        }
+
+        callback(&dir, &format!("/{}", directory))?;
     }
 
     Ok(())

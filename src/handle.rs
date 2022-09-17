@@ -33,6 +33,7 @@ pub fn install(
 
             if flags.link {
                 package.install().map_err(|_| ExecuteError::CompileFail)?;
+                println!("Installed {} v{}", package.name, package.version);
             }
         }
         Err(e) => {
@@ -101,7 +102,7 @@ pub fn remove(package: &Package) -> Result<(), ExecuteError> {
 impl From<&ArgMatches> for InstallFlags {
     fn from(matches: &ArgMatches) -> Self {
         Self {
-            link: matches.is_present("dry"),
+            link: matches.is_present("install"),
         }
     }
 }
