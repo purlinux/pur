@@ -43,11 +43,6 @@ pub struct InstallData {
     pub version: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct InstallFlags {
-    pub link: bool,
-}
-
 #[derive(Debug)]
 pub struct Repo {
     pub dir: PathBuf,

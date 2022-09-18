@@ -1,7 +1,5 @@
-use clap::ArgMatches;
-
 use crate::error::{ExecuteError, UpdateError};
-use crate::repo::{InstallFlags, Package, Repo};
+use crate::repo::{Package, Repo};
 
 pub fn build(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
     for ele in &package.depends {
@@ -113,12 +111,4 @@ pub fn remove(package: &Package) -> Result<(), ExecuteError> {
     }
 
     Ok(())
-}
-
-impl From<&ArgMatches> for InstallFlags {
-    fn from(matches: &ArgMatches) -> Self {
-        Self {
-            link: matches.is_present("install"),
-        }
-    }
 }
