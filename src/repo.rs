@@ -185,7 +185,13 @@ impl Repo {
 
 impl Package {
     pub fn is_installed(&self) -> Option<InstallData> {
-        let dir = fs::read_dir(PathBuf::from("/var/db/installed/"));
+        let path = PathBuf::from("/var/db/installed/");
+
+        if !path.exists() {
+            fs::create_dir_all(&path).expect("Couldn't create /var/db/installed/");
+        }
+
+        let dir = fs::read_dir(&path);
 
         match dir {
             Ok(value) => {
@@ -220,15 +226,18 @@ impl Package {
                     None => None,
                 }
             }
-            // Not sure what kind of behaviour we should expect here.
-            // /var/db/installed/ is not present, while it should be.
-            // We should either produce an error here, or we should make the directory.
             Err(_) => None,
         }
     }
 
     pub fn is_built(&self) -> Option<InstallData> {
-        let dir = fs::read_dir(PathBuf::from("/var/db/installed/"));
+        let path = PathBuf::from("/var/db/installed/");
+
+        if !path.exists() {
+            fs::create_dir_all(&path).expect("Couldn't create /var/db/installed/");
+        }
+
+        let dir = fs::read_dir(&path);
 
         match dir {
             Ok(value) => {
@@ -249,9 +258,6 @@ impl Package {
                     None => None,
                 }
             }
-            // Not sure what kind of behaviour we should expect here.
-            // /var/db/installed/ is not present, while it should be.
-            // We should either produce an error here, or we should make the directory.
             Err(_) => None,
         }
     }
