@@ -3,11 +3,7 @@ use clap::ArgMatches;
 use crate::error::{ExecuteError, UpdateError};
 use crate::repo::{InstallFlags, Package, Repo};
 
-pub fn install(
-    package: &Package,
-    packages: &Vec<Package>,
-    matches: &ArgMatches,
-) -> Result<(), ExecuteError> {
+pub fn build(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
     for ele in &package.depends {
         let depend = packages.iter().find(|package| &package.name == ele);
 
@@ -15,7 +11,7 @@ pub fn install(
             // We just want to call this method recursively until all dependencies are installed.
             // We probably want to manually handle the error in here, considering they're children, and not the entire
             // build process should have to be stopped just because this build fails.
-            Some(package) => install(&package, &packages, matches)?,
+            Some(package) => install(&package, &packages)?,
             // I'm not sure what kind of behaviour we should be expecting here.
             // Should we expect the whole package to be skipped? Or should we just ignore this dependency?
             // I suggest we completely skip the package for now, because there is simply something wrong with the package if
@@ -25,16 +21,36 @@ pub fn install(
         }
     }
 
-    let flags: InstallFlags = matches.into();
-
     match package.build() {
         Ok(_) => {
             println!("Built {} v{}", package.name, package.version);
+            println!("pur install {} to create symlinks.", package.name);
+        }
+        Err(e) => {
+            println!(
+                "Failed to build {} v{}... Skipping!",
+                package.name, package.version
+            );
 
-            if flags.link {
-                package.install().map_err(|_| ExecuteError::CompileFail)?;
-                println!("Installed {} v{}", package.name, package.version);
-            }
+            // Here we want to print the error for easier debugging.
+            // Should we only print this if a certain environment variable is set? (e.g DEBUG).
+            println!("{:?}", e);
+
+            return Err(ExecuteError::CompileFail);
+        }
+    };
+
+    Ok(())
+}
+
+pub fn install(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
+    if package.is_built().is_none() {
+        build(package, packages)?;
+    }
+
+    match package.install() {
+        Ok(_) => {
+            println!("Installed {} v{}", package.name, package.version);
         }
         Err(e) => {
             println!(
@@ -48,7 +64,7 @@ pub fn install(
 
             return Err(ExecuteError::CompileFail);
         }
-    };
+    }
 
     Ok(())
 }

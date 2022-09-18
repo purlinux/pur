@@ -13,9 +13,16 @@ fn main() -> Result<(), ExecuteError> {
         .subcommand_required(true)
         .subcommand(
             Command::new("install")
+                .alias("i")
                 .about("Fetches & installs packages")
                 .arg(arg!([NAME]))
                 .arg(arg!(-i --install "Automatically install the packages, create symlinks etc")),
+        )
+        .subcommand(
+            Command::new("build")
+                .alias("b")
+                .about("Builds packages without creating symlinks")
+                .arg(arg!([NAME])),
         )
         .subcommand(Command::new("update").about("Updates the local repositories cached"))
         .subcommand(
@@ -60,7 +67,20 @@ fn main() -> Result<(), ExecuteError> {
                 // We should manually handle the error thrown by handle::install() here,
                 // but currently we're just panicing, so please do this in the future.
                 for package in to_install {
-                    handle::install(&package, &packages, &matches)?;
+                    handle::install(&package, &packages)?;
+                }
+            }
+        }
+        Some(("build", matches)) => {
+            if let Some(to_build) = matches.get_many::<String>("NAME") {
+                let to_build = to_build
+                    .into_iter()
+                    .flat_map(|pkg| packages.iter().find(|x| &x.name == pkg)) // find a package which matches the name given by the user.
+                    .cloned()
+                    .collect::<Vec<Package>>();
+
+                for package in to_build {
+                    handle::build(&package, &packages)?;
                 }
             }
         }

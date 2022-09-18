@@ -198,6 +198,49 @@ impl Package {
                         let split = lossy_str.split("/");
                         let name = split.last().or_else(|| Some("")).unwrap().to_owned();
 
+                        if !r
+                            .read_dir()
+                            .expect("Failed to read directory.")
+                            .flatten()
+                            .any(|f| {
+                                f.file_name()
+                                    .as_os_str()
+                                    .to_string_lossy()
+                                    .ends_with("installed")
+                            })
+                        {
+                            return false;
+                        }
+
+                        name == self.name.clone()
+                    });
+
+                match first {
+                    Some(value) => InstallData::try_from(value).ok(),
+                    None => None,
+                }
+            }
+            // Not sure what kind of behaviour we should expect here.
+            // /var/db/installed/ is not present, while it should be.
+            // We should either produce an error here, or we should make the directory.
+            Err(_) => None,
+        }
+    }
+
+    pub fn is_built(&self) -> Option<InstallData> {
+        let dir = fs::read_dir(PathBuf::from("/var/db/installed/"));
+
+        match dir {
+            Ok(value) => {
+                let first = value
+                    .into_iter()
+                    .filter(|r| r.is_ok())
+                    .map(|r| r.unwrap().path())
+                    .find(|r| {
+                        let lossy_str = r.as_os_str().to_string_lossy();
+                        let split = lossy_str.split("/");
+                        let name = split.last().or_else(|| Some("")).unwrap().to_owned();
+
                         name == self.name.clone()
                     });
 
@@ -275,13 +318,15 @@ impl Package {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
+        let _ = File::create(installed_dir.join("installed"));
+
         execute_for_dirs::<BuildError>(&files_dir, &|dir, id| {
             link_file(dir, id).map_err(|_| BuildError::LinkError)
         })
     }
 
     pub fn uninstall(&self) -> Result<(), ParseError> {
-        if self.is_installed().is_none() {
+        if self.is_built().is_none() {
             return Err(ParseError::NotInstalled);
         }
 
