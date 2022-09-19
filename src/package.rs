@@ -113,6 +113,10 @@ impl Package {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
         let files_dir = installed_dir.join("files");
 
+        self.structure
+            .create_all()
+            .map_err(|e| ParseError::Other(e.to_string()))?;
+
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
         let version_file = installed_dir.join("version");
