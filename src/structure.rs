@@ -213,7 +213,7 @@ pub fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io
     Ok(())
 }
 
-#[cfg(target_os = "unix")]
+#[cfg(all(unix))]
 fn symlink(path: &PathBuf, target: &PathBuf) -> std::io::Result<()> {
     std::os::unix::fs::symlink(path.as_os_str(), &target_path)
 }
