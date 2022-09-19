@@ -1,6 +1,8 @@
 pub mod error;
-mod handle;
 pub mod package;
+pub mod structure;
+
+mod handle;
 mod repo;
 
 use crate::error::ExecuteError;

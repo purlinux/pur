@@ -9,6 +9,7 @@ use std::{
 use crate::{
     error::{BuildError, ParseError},
     repo::InstallData,
+    structure::{FileStructure, InstallFileStructure},
 };
 
 #[derive(Debug, Clone)]
@@ -16,6 +17,7 @@ pub struct Package {
     pub version: String,
     pub name: String,
     pub depends: Vec<String>,
+    structure: InstallFileStructure,
     dir: PathBuf,
 }
 
@@ -115,7 +117,7 @@ impl Package {
         // These directories are required for 2 related reasons:
         // - We can't directly move the binaries into the global directories, as we still have to be able to delete the package.
         // - We have to be able to detect what package the binaries are related to
-        execute_for_dirs::<ParseError>(&files_dir, &|_, _| Ok(()))?;
+        // execute_for_dirs::<ParseError>(&files_dir, &|_, _| Ok(()))?;
 
         // the version data
         let bytes = format!("{}", self.version).as_bytes().to_owned();
@@ -158,13 +160,16 @@ impl Package {
 
     pub fn install(&self) -> Result<(), BuildError> {
         let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
-        let files_dir = installed_dir.join("files");
+        // let files_dir = installed_dir.join("files");
 
         let _ = File::create(installed_dir.join("installed"));
 
-        execute_for_dirs::<BuildError>(&files_dir, &|dir, id| {
-            link_file(dir, id).map_err(|_| BuildError::LinkError)
-        })
+        self.structure
+            .symlink_out_scope()
+            .map_err(|_| BuildError::LinkError)
+        // execute_for_dirs::<BuildError>(&files_dir, &|dir, id| {
+        //     link_file(dir, id).map_err(|_| BuildError::LinkError)
+        // })
     }
 
     pub fn uninstall(&self) -> Result<(), ParseError> {
@@ -186,12 +191,21 @@ impl Package {
     }
 
     pub fn remove_binaries(&self) -> Result<(), ParseError> {
-        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
-        let files_dir = installed_dir.join("files");
+        // let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
+        // let files_dir = installed_dir.join("files");
 
-        execute_for_dirs::<ParseError>(&files_dir, &|path, id| {
-            unlink_file(&path, id).map_err(|_| ParseError::NoDirectory(String::from("")))
-        })
+        self.structure
+            .remove_symlinks()
+            .map_err(|e| ParseError::NoDirectory(e.to_string()))?;
+            
+        self.structure
+            .delete_all()
+            .map_err(|e| ParseError::NoDirectory(e.to_string()))?;
+
+        Ok(())
+        // execute_for_dirs::<ParseError>(&files_dir, &|path, id| {
+        //     unlink_file(&path, id).map_err(|_| ParseError::NoDirectory(String::from("")))
+        // })
     }
 }
 
@@ -219,75 +233,78 @@ impl TryFrom<PathBuf> for Package {
             .filter(|x| !x.is_empty())
             .collect::<Vec<String>>();
 
+        let structure = InstallFileStructure::new(&name);
+
         Ok(Self {
             version,
             dir,
             name,
             depends,
+            structure,
         })
     }
 }
 
-fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
-    do_recursive(dir, &|path| {
-        let file_name = path.file_name();
+// fn link_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+//     do_recursive(dir, &|path| {
+//         let file_name = path.file_name();
 
-        if let Some(file_name) = file_name {
-            let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-            std::os::unix::fs::symlink(path.as_os_str(), &new_link).expect("meow");
-        }
-    })
-}
+//         if let Some(file_name) = file_name {
+//             let new_link = format!("{}/{}", target, file_name.to_string_lossy());
+//             // std::os::unix::fs::symlink(path.as_os_str(), &new_link).expect("meow");
+//         }
+//     })
+// }
 
-fn unlink_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
-    do_recursive(dir, &|path| {
-        let file_name = path.file_name();
+// fn unlink_file(dir: &PathBuf, target: &str) -> std::io::Result<()> {
+//     do_recursive(dir, &|path| {
+//         let file_name = path.file_name();
 
-        if let Some(file_name) = file_name {
-            let new_link = format!("{}/{}", target, file_name.to_string_lossy());
-            let path = PathBuf::from(&new_link);
+//         if let Some(file_name) = file_name {
+//             let new_link = format!("{}/{}", target, file_name.to_string_lossy());
+//             let path = PathBuf::from(&new_link);
 
-            if path.exists() {
-                fs::remove_file(&new_link).expect("Unable to remove symlink, are you root?");
-            }
-        }
-    })
-}
+//             if path.exists() {
+//                 fs::remove_file(&new_link).expect("Unable to remove symlink, are you root?");
+//             }
+//         }
+//     })
+// }
 
-fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Result<()> {
-    for entry in dir.read_dir() {
-        for entry in entry {
-            let entry = entry?;
-            let path = entry.path();
+// fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Result<()> {
+//     for entry in dir.read_dir() {
+//         for entry in entry {
+//             let entry = entry?;
+//             let path = entry.path();
 
-            match (path.is_file(), path.is_dir()) {
-                (true, false) => callback(&path),
-                (false, true) => do_recursive(dir, callback)?,
-                (_, _) => {
-                    println!("what? {:?}", path);
-                }
-            }
-        }
-    }
+//             match (path.is_file(), path.is_dir()) {
+//                 (true, false) => callback(&path),
+//                 (false, true) => do_recursive(dir, callback)?,
+//                 (_, _) => {
+//                     println!("what? {:?}", path);
+//                 }
+//             }
+//         }
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
-fn execute_for_dirs<T>(
-    base_dir: &PathBuf,
-    callback: &dyn Fn(&PathBuf, &String) -> Result<(), T>,
-) -> Result<(), T> {
-    let directories = vec!["usr/bin", "usr/lib", "usr/lib64", "usr/sbin", "usr/linuxrc"];
+// fn execute_for_dirs<T>(
+//     base_dir: &PathBuf,
+//     callback: &dyn Fn(&PathBuf, &String) -> Result<(), T>,
+// ) -> Result<(), T> {
+//     let directories = vec!["usr/bin", "usr/lib", "usr/lib64", "usr/sbin", "usr/linuxrc"];
 
-    for directory in directories {
-        let dir = base_dir.join(directory);
+//     for directory in directories {
+//         let dir = base_dir.join(directory);
 
-        if !dir.exists() {
-            fs::create_dir_all(&dir).expect("Unable to create directory.");
-        }
+//         if !dir.exists() {
+//             fs::create_dir_all(&dir).expect("Unable to create directory.");
+//         }
 
-        callback(&dir, &format!("/{}", directory))?;
-    }
+//         callback(&dir, &format!("/{}", directory))?;
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }

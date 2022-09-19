@@ -1,4 +1,12 @@
 #[derive(Debug)]
+pub enum FileStructureError {
+    FileCreateError(String),
+    FileDeleteError(String),
+    SymLinkError(String),
+    FileCopyError(String),
+}
+
+#[derive(Debug)]
 pub enum ExecuteError {
     NoDependFound,
     CompileFail,
