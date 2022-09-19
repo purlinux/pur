@@ -215,7 +215,7 @@ pub fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io
 
 #[cfg(all(unix))]
 fn symlink(path: &PathBuf, target: &PathBuf) -> std::io::Result<()> {
-    std::os::unix::fs::symlink(path.as_os_str(), &target_path)
+    std::os::unix::fs::symlink(&path, &target)
 }
 
 // this is just here to remove the stupid compile-time error on windows!
