@@ -1,5 +1,6 @@
 use crate::error::{ExecuteError, UpdateError};
-use crate::repo::{Package, Repo};
+use crate::package::Package;
+use crate::repo::Repo;
 
 pub fn build(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteError> {
     for ele in &package.depends {

@@ -1,9 +1,10 @@
 pub mod error;
 mod handle;
+pub mod package;
 mod repo;
 
 use crate::error::ExecuteError;
-use crate::repo::Package;
+use crate::package::Package;
 use clap::{arg, command, Command};
 
 fn main() -> Result<(), ExecuteError> {
