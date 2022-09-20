@@ -22,7 +22,7 @@ pub struct InstallFileStructure {
 impl InstallFileStructure {
     pub fn new(id: &str) -> Self {
         let id = id.to_owned();
-        let parent = PathBuf::from(format!("/var/db/pur/installed/{}/files", id));
+        let parent = PathBuf::from(format!("/var/db/installed/{}/files", id));
 
         Self {
             id,
@@ -43,6 +43,7 @@ impl InstallFileStructure {
         }
 
         bufs.push(parent.to_path_buf());
+        bufs.push(parent.to_path_buf().parent().unwrap().to_path_buf());
 
         return bufs;
     }
@@ -52,21 +53,7 @@ impl InstallFileStructure {
         let parent = &self.parent;
 
         for child in &self.children {
-            // not sure if this is needed. will .join() work with subdirectories? or do we have to
-            // join every single sub directory like this. I'll do some testing later, but this should work for sure.
-            let mut parts = child
-                .split("/")
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<String>>();
-
-            let mut path = parent.join(&parts[0]);
-
-            while parts.len() >= 1 {
-                path = path.join(&parts[0]);
-                parts.remove(0);
-            }
-
+            let path = parent.join(child);
             children.push((path, child.to_owned()));
         }
 
@@ -90,7 +77,7 @@ impl FileStructure for InstallFileStructure {
 
     fn delete_all(&self) -> FileResult<()> {
         for path in self.get_path_bufs() {
-            if path.exists() {
+            if !path.exists() {
                 continue;
             }
 
@@ -117,12 +104,13 @@ impl FileStructure for InstallFileStructure {
     fn symlink_out_scope(&self) -> FileResult<()> {
         for (path, id) in self.get_children() {
             if !path.exists() {
+                println!("{:?} does not exist unlink", path);
                 continue;
             }
 
             let target_path = PathBuf::from(id).join(&self.id);
 
-            do_recursive(&path, &|path| {
+            do_recursive::<FileStructureError>(&path, &|path| {
                 let child = path
                     .file_name()
                     .unwrap()
@@ -132,17 +120,19 @@ impl FileStructure for InstallFileStructure {
                     .map(String::from)
                     .collect::<Vec<String>>();
 
-                let last = child.last();
+                let last = child.get(child.len() - 2);
+                let mut target_path = PathBuf::from("/").join(target_path.clone());
 
-                match last {
-                    Some(id) => {
-                        let path = path.join(&id);
-                        let target_path = target_path.join(&id);
-
-                        symlink(&path, &target_path).unwrap();
-                    }
-                    None => {}
+                if let Some(last) = last {
+                    target_path = target_path.join(&last);
                 }
+
+                if path.is_file() {
+                    symlink(&path, &target_path)
+                        .map_err(|err| FileStructureError::SymLinkError(err.to_string()))?;
+                }
+
+                Ok(())
             })
             .map_err(|error| FileStructureError::SymLinkError(error.to_string()))?;
         }
@@ -153,12 +143,13 @@ impl FileStructure for InstallFileStructure {
     fn remove_symlinks(&self) -> FileResult<()> {
         for (path, id) in self.get_children() {
             if !path.exists() {
+                println!("{:?} does not exist unlink", path);
                 continue;
             }
 
             let target_path = PathBuf::from(id).join(&self.id);
 
-            do_recursive(&path, &|path| {
+            do_recursive::<FileStructureError>(&path, &|path| {
                 let child = path
                     .file_name()
                     .unwrap()
@@ -168,20 +159,19 @@ impl FileStructure for InstallFileStructure {
                     .map(String::from)
                     .collect::<Vec<String>>();
 
-                let last = child.last();
+                let last = child.get(child.len() - 2);
+                let mut target_path = PathBuf::from("/").join(target_path.clone());
 
-                match last {
-                    Some(id) => {
-                        let target_path = target_path.join(id);
-
-                        if path.is_file() {
-                            fs::remove_file(target_path).unwrap();
-                        }
-                    }
-                    None => {}
+                if let Some(last) = last {
+                    target_path = target_path.join(&last);
                 }
-            })
-            .map_err(|error| FileStructureError::SymLinkError(error.to_string()))?;
+
+                if path.is_file() {
+                    let _ = fs::remove_file(target_path);
+                }
+
+                Ok(())
+            })?
         }
 
         Ok(())
@@ -194,14 +184,17 @@ impl Display for FileStructureError {
     }
 }
 
-pub fn do_recursive(dir: &PathBuf, callback: &dyn Fn(&PathBuf) -> ()) -> std::io::Result<()> {
+pub fn do_recursive<T>(
+    dir: &PathBuf,
+    callback: &dyn Fn(&PathBuf) -> Result<(), T>,
+) -> Result<(), T> {
     for entry in dir.read_dir() {
         for entry in entry {
-            let entry = entry?;
+            let entry = entry.unwrap();
             let path = entry.path();
 
             match (path.is_file(), path.is_dir()) {
-                (true, false) => callback(&path),
+                (true, false) => callback(&path)?,
                 (false, true) => do_recursive(dir, callback)?,
                 (_, _) => {
                     println!("what? {:?}", path);
@@ -219,7 +212,7 @@ fn symlink(path: &PathBuf, target: &PathBuf) -> std::io::Result<()> {
 }
 
 // this is just here to remove the stupid compile-time error on windows!
-#[cfg(target_os = "windows")]
-fn symlink(_: &PathBuf, _: &PathBuf) -> std::io::Result<()> {
-    Ok(())
-}
+//#[cfg(target_os = "windows")]
+//fn symlink(_: &PathBuf, _: &PathBuf) -> std::io::Result<()> {
+//    Ok(())
+//}

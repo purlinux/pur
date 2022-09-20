@@ -125,9 +125,6 @@ impl Package {
             let _ = fs::remove_file(&version_file); // can ignore this error
         }
 
-        // this will automatically create all the parent directories (including &installed_dir)
-        fs::create_dir_all(&files_dir).expect("meow todo error");
-
         let mut file = File::create(&version_file).map_err(|e| {
             ParseError::NoDirectory(format!(
                 "{}: {}",
@@ -170,15 +167,15 @@ impl Package {
             return Err(ParseError::NotInstalled);
         }
 
-        let installed_dir = PathBuf::from(format!("/var/db/installed/{}", self.name));
-
         // first, we want to remove the binaries.
         // these binaries are stored within the `installed_dir` directory,
         // so we have to delete them before we delete the directory.
         self.remove_binaries()?;
 
-        // now, we want to delete the actual binary data and the full installation directory.
-        fs::remove_dir_all(installed_dir).expect("Unable to delete file, are you root?");
+        // now, we want to remove the actual storage of the binaries and the installation data.
+        self.structure
+            .delete_all()
+            .map_err(|e| ParseError::Other(e.to_string()))?;
 
         Ok(())
     }
@@ -186,10 +183,6 @@ impl Package {
     pub fn remove_binaries(&self) -> Result<(), ParseError> {
         self.structure
             .remove_symlinks()
-            .map_err(|e| ParseError::NoDirectory(e.to_string()))?;
-
-        self.structure
-            .delete_all()
             .map_err(|e| ParseError::NoDirectory(e.to_string()))?;
 
         Ok(())
