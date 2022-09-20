@@ -6,9 +6,30 @@ type FileResult<T> = Result<T, FileStructureError>;
 
 pub trait FileStructure: Sized {
     fn create_all(&self) -> FileResult<()>;
+
+    /// This method will delete all directories resulted of the 
+    /// file structure's contents. 
+    ///
+    /// This will not delete the symlinked contents,
+    /// to delete symlinks, use [FileStructure.remove_symlinks]
     fn delete_all(&self) -> FileResult<()>;
+
+    // This method will create symlinks out of the file structure's scope,
+    // usually so programs will be put within the PATH environment
+    //
+    // Example:
+    // parent = /var/db/installed/pfetch/files/
+    // children = [usr/bin, usr/lib]
+    //
+    // The children of this example will be /var/db/installed/pfetch/files/usr/bin etc..
+    // these children will then be moved to their base child path.
     fn symlink_out_scope(&self) -> FileResult<()>;
+
     fn remove_symlinks(&self) -> FileResult<()>;
+
+    // This method will move all of the current directories into
+    // the target directory, while maintaining the correct structure
+    // present within the current FileStructure.
     fn move_all(&self, target: &PathBuf) -> FileResult<()>;
 }
 
@@ -43,6 +64,8 @@ impl InstallFileStructure {
         }
 
         bufs.push(parent.to_path_buf());
+
+        // this should be here, so we can delete this directory whenever delete_all() is called.
         bufs.push(parent.to_path_buf().parent().unwrap().to_path_buf());
 
         return bufs;
@@ -94,7 +117,11 @@ impl FileStructure for InstallFileStructure {
                 continue;
             }
 
-            fs::copy(path, target.join(id))
+            // we want to join here, so we maintain our file structure within
+            // the target directory.
+            let target_path = target.join(id);
+
+            fs::copy(path, target_path)
                 .map_err(|err| FileStructureError::FileCopyError(err.to_string()))?;
         }
 
@@ -110,6 +137,9 @@ impl FileStructure for InstallFileStructure {
 
             let target_path = PathBuf::from(id).join(&self.id);
 
+            // I'm not sure if this has to be done recursively, currently
+            // this is done recursively expecting there to be directories within the target
+            // directories (e.g usr/bin/data), but not sure if this should be expected behaviour.
             do_recursive::<FileStructureError>(&path, &|path| {
                 let child = path
                     .file_name()
@@ -212,7 +242,7 @@ fn symlink(path: &PathBuf, target: &PathBuf) -> std::io::Result<()> {
 }
 
 // this is just here to remove the stupid compile-time error on windows!
-//#[cfg(target_os = "windows")]
-//fn symlink(_: &PathBuf, _: &PathBuf) -> std::io::Result<()> {
-//    Ok(())
-//}
+#[cfg(target_os = "windows")]
+fn symlink(_: &PathBuf, _: &PathBuf) -> std::io::Result<()> {
+    Ok(())
+}

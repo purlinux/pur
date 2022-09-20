@@ -3,11 +3,7 @@ use crate::package::Package;
 use std::env::set_current_dir;
 use std::num::ParseIntError;
 use std::process::Command;
-use std::{
-    convert::TryFrom,
-    fs::{self},
-    path::PathBuf,
-};
+use std::{convert::TryFrom, fs, path::PathBuf};
 
 pub fn get_repositories() -> Vec<Repo> {
     let repo_var = match std::env::var("PUR_PATH") {
