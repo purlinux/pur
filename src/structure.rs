@@ -131,7 +131,6 @@ impl FileStructure for InstallFileStructure {
     fn symlink_out_scope(&self) -> FileResult<()> {
         for (path, id) in self.get_children() {
             if !path.exists() {
-                println!("{:?} does not exist unlink", path);
                 continue;
             }
 
@@ -163,8 +162,7 @@ impl FileStructure for InstallFileStructure {
                 }
 
                 Ok(())
-            })
-            .map_err(|error| FileStructureError::SymLinkError(error.to_string()))?;
+            })?
         }
 
         Ok(())
@@ -173,7 +171,6 @@ impl FileStructure for InstallFileStructure {
     fn remove_symlinks(&self) -> FileResult<()> {
         for (path, id) in self.get_children() {
             if !path.exists() {
-                println!("{:?} does not exist unlink", path);
                 continue;
             }
 
