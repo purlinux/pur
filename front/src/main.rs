@@ -1,12 +1,7 @@
-pub mod error;
-pub mod package;
-pub mod structure;
-
 mod handle;
-mod repo;
 
-use crate::error::ExecuteError;
-use crate::package::Package;
+use api::error::ExecuteError;
+use api::package::Package;
 use clap::{arg, command, Command};
 
 fn main() -> Result<(), ExecuteError> {
@@ -44,7 +39,7 @@ fn main() -> Result<(), ExecuteError> {
 
     // If we're here, it means the program has to do something with the repositories.
     // Therefore, we're free to fetch all repositories now.
-    let repositories = repo::get_repositories();
+    let repositories = api::repo::get_repositories();
 
     // We want to get all packages here, we could move this down later.
     // Currently, all commands require the packages to be fetched from the system,

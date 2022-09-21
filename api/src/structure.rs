@@ -7,8 +7,8 @@ type FileResult<T> = Result<T, FileStructureError>;
 pub trait FileStructure: Sized {
     fn create_all(&self) -> FileResult<()>;
 
-    /// This method will delete all directories resulted of the 
-    /// file structure's contents. 
+    /// This method will delete all directories resulted of the
+    /// file structure's contents.
     ///
     /// This will not delete the symlinked contents,
     /// to delete symlinks, use [FileStructure.remove_symlinks]
