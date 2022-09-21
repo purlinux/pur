@@ -68,6 +68,16 @@ impl Package {
         }
     }
 
+    // This method is exactly the same as [is_installed()], however
+    // this skips the check for the `installed` file within the directory.
+    //
+    // For this reason, this method is also more efficient than the before-mentioned
+    // alternative method.
+    //
+    // This is because our current file structure allows you to have non-installed but built 
+    // packages within the /var/db/installed/ directory. These should probably be re-categorized
+    // into something like /var/db/built/, and after installation moved into /var/db/installed. But
+    // for now, our structure is like this.
     pub fn is_built(&self) -> Option<InstallData> {
         let path = PathBuf::from("/var/db/installed/");
 

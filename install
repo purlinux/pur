@@ -1,5 +1,8 @@
 #!/bin/sh
 # this is just a temporary install script for easier testing
-cargo install --path .
-sudo rm /bin/pur
-sudo ln target/release/pur /bin/pur
+cargo build --release
+if [[ $EUID -eq 0 ]]; then
+  rm /bin/pur
+  ln target/release/front /bin/pur
+fi
+

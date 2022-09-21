@@ -1,6 +1,5 @@
-use std::{fmt::Display, fs, path::PathBuf};
-
 use crate::error::FileStructureError;
+use std::{fmt::Display, fs, path::PathBuf};
 
 type FileResult<T> = Result<T, FileStructureError>;
 

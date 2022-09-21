@@ -16,7 +16,13 @@ pub fn build(package: &Package, packages: &Vec<Package>) -> Result<(), ExecuteEr
             // I suggest we completely skip the package for now, because there is simply something wrong with the package if
             // the dependency is not present, and if it actually does depend on the package, there's something wrong with
             // the user's repositories setup on their local system.
-            None => return Err(ExecuteError::NoDependFound),
+            None => {
+                println!(
+                    "Skipping build of {}, failed to install one or several dependencies.",
+                    &package.name
+                );
+                return Err(ExecuteError::NoDependFound);
+            }
         }
     }
 

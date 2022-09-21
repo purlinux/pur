@@ -1,2 +1,9 @@
 [workspace]
 members = ["api", "front"]
+
+[profile.release]
+strip = true
+panic = "abort"
+opt-level = "z"
+overflow-checks = false
+lto = true
