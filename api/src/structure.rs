@@ -1,5 +1,5 @@
 use crate::error::FileStructureError;
-use std::{fmt::Display, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 type FileResult<T> = Result<T, FileStructureError>;
 
@@ -90,8 +90,7 @@ impl FileStructure for InstallFileStructure {
                 continue;
             }
 
-            fs::create_dir_all(path)
-                .map_err(|err| FileStructureError::FileCreateError(err.to_string()))?;
+            fs::create_dir_all(path)?;
         }
 
         Ok(())
@@ -103,8 +102,7 @@ impl FileStructure for InstallFileStructure {
                 continue;
             }
 
-            fs::remove_dir_all(path)
-                .map_err(|err| FileStructureError::FileDeleteError(err.to_string()))?;
+            fs::remove_dir_all(path)?;
         }
 
         Ok(())
@@ -120,8 +118,7 @@ impl FileStructure for InstallFileStructure {
             // the target directory.
             let target_path = target.join(id);
 
-            fs::copy(path, target_path)
-                .map_err(|err| FileStructureError::FileCopyError(err.to_string()))?;
+            fs::copy(path, target_path)?;
         }
 
         Ok(())
@@ -156,8 +153,7 @@ impl FileStructure for InstallFileStructure {
                 }
 
                 if path.is_file() {
-                    symlink(&path, &target_path)
-                        .map_err(|err| FileStructureError::SymLinkError(err.to_string()))?;
+                    symlink(&path, &target_path)?
                 }
 
                 Ok(())
@@ -201,12 +197,6 @@ impl FileStructure for InstallFileStructure {
         }
 
         Ok(())
-    }
-}
-
-impl Display for FileStructureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 

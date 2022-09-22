@@ -74,7 +74,7 @@ impl Package {
     // For this reason, this method is also more efficient than the before-mentioned
     // alternative method.
     //
-    // This is because our current file structure allows you to have non-installed but built 
+    // This is because our current file structure allows you to have non-installed but built
     // packages within the /var/db/installed/ directory. These should probably be re-categorized
     // into something like /var/db/built/, and after installation moved into /var/db/installed. But
     // for now, our structure is like this.
@@ -113,8 +113,7 @@ impl Package {
     pub fn update(&self) -> Result<(), ParseError> {
         self.remove_binaries()?;
         self.build()?;
-        self.install()
-            .map_err(|err| ParseError::Other(format!("{:?}", err)))?;
+        self.install()?;
 
         Ok(())
     }
@@ -135,20 +134,11 @@ impl Package {
             let _ = fs::remove_file(&version_file); // can ignore this error
         }
 
-        let mut file = File::create(&version_file).map_err(|e| {
-            ParseError::NoDirectory(format!(
-                "{}: {}",
-                e,
-                &version_file.as_os_str().to_string_lossy()
-            ))
-        })?;
-
-        file.write_all(&bytes)
-            .map_err(|_| ParseError::MetadataWriting(String::from("Version Metadata")))?;
+        let mut file = File::create(&version_file)?;
+        file.write_all(&bytes)?;
 
         // actually change the directory
-        set_current_dir(&files_dir.as_os_str())
-            .map_err(|_| ParseError::NoDirectory(String::from("Unable to change to directory")))?;
+        set_current_dir(&files_dir.as_os_str())?;
 
         let install_script = self.dir.join("install");
 

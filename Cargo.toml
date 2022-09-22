@@ -1,5 +1,5 @@
 [workspace]
-members = ["api", "front"]
+members = ["api", "front", "macros"]
 
 [profile.release]
 strip = true
